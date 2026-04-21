@@ -1,484 +1,499 @@
-chesapeake-chatbot/app/page.tsx
-```
+"use client";
 
-```tsx
-import dynamic from 'next/dynamic';
-import Link from 'next/link';
-
-// Dynamically import ChatInterface to avoid SSR issues with browser APIs
-const ChatInterface = dynamic(() => import('@/components/ChatInterface'), {
-  ssr: false,
-  loading: () => (
-    <div className="h-[600px] bg-gray-100 rounded-xl animate-pulse flex items-center justify-center">
-      <div className="text-center">
-        <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-        <p className="text-gray-600">Loading Agentic AI Chatbot...</p>
-      </div>
-    </div>
-  ),
-});
+import { useState } from "react";
+import ChatWidget from "@/components/ChatWidget";
 
 export default function Home() {
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+  };
+
+  const handleButtonClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+  };
+
+  // Navigation items
+  const mainNavigation = [
+    { label: "Home", href: "#" },
+    { label: "Government", href: "#" },
+    { label: "Business", href: "#" },
+    { label: "Community", href: "#" },
+    { label: "Visitors", href: "#" },
+    { label: "How Do I...", href: "#" },
+  ];
+
+  // News items
+  const newsItems = [
+    {
+      title: "FY27 Budget Presentation",
+      date: "March 18, 2026",
+      category: "Finance",
+      description:
+        "City Manager Chris Price presented his proposed Operating and Capital Budgets to City Council.",
+    },
+    {
+      title: "2026 Special Election Voters Guide",
+      date: "April 2, 2026",
+      category: "Elections",
+      description:
+        "A special election will be held on Tuesday, April 21, 2026, for City Council District 2.",
+    },
+    {
+      title: "Improper Battery Disposal Poses Fire Risk",
+      date: "March 28, 2026",
+      category: "Public Safety",
+      description:
+        "Improper disposal of lithium-ion batteries in household trash can cause dangerous fires.",
+    },
+    {
+      title: "City Council Meeting Agenda",
+      date: "April 21, 2026",
+      category: "Government",
+      description:
+        "The next City Council meeting will be held on Tuesday, April 21 at 6:30 PM.",
+    },
+  ];
+
+  // Quick links
+  const quickLinks = [
+    { label: "Pay Water Bill", href: "#" },
+    { label: "Building Permits", href: "#" },
+    { label: "Trash Schedule", href: "#" },
+    { label: "Report an Issue", href: "#" },
+    { label: "Property Taxes", href: "#" },
+    { label: "Parks & Recreation", href: "#" },
+    { label: "Chesapeake Alert", href: "#" },
+    { label: "Online Services", href: "#" },
+  ];
+
+  // Departments
+  const departments = [
+    "Police Department",
+    "Fire Department",
+    "Public Works",
+    "Planning Department",
+    "Parks & Recreation",
+    "Human Services",
+  ];
+
+  // Resources
+  const resources = [
+    "Public Records Request",
+    "Open Data Portal",
+    "Budget & Finance",
+    "Employment Opportunities",
+    "Bids & RFPs",
+    "City Code",
+  ];
+
+  // Legal links
+  const legalLinks = [
+    "Privacy Policy",
+    "Terms of Use",
+    "Accessibility",
+    "Copyright",
+    "Disclaimer",
+    "Non-Discrimination",
+  ];
+
   return (
-    <>
-      {/* Hero Section */}
-      <section className="py-12 md:py-20 lg:py-24 bg-gradient-to-b from-blue-50 to-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div>
-              <div className="inline-flex items-center px-4 py-2 rounded-full bg-blue-100 text-blue-700 font-semibold text-sm mb-6">
-                <span className="flex h-2 w-2 bg-blue-600 rounded-full mr-2 animate-pulse"></span>
-                Powered by Agentic AI Technology
+    <div className="min-h-screen bg-white text-[#454545] font-arial text-[0.95em] leading-[1.5]">
+      {/* Header - Fixed position */}
+      <header className="fixed top-[-1px] left-0 right-0 z-40 bg-white shadow-[3px_3px_25px_0_rgba(162,34,76,0.21)] border-b border-[#898a8e]">
+        {/* Top bar */}
+        <div className="chesapeake-bg-secondary text-white py-1">
+          <div className="container mx-auto px-4">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between text-sm">
+              <div className="mb-1 md:mb-0">
+                <span className="font-semibold">
+                  City of Chesapeake, Virginia
+                </span>
+                <span className="mx-2">|</span>
+                <span className="text-gray-300">
+                  Serving Our Community Since 1963
+                </span>
               </div>
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 leading-tight mb-6">
-                Chesapeake City{' '}
-                <span className="text-blue-700">Agentic AI Chatbot</span>
-              </h1>
-              <p className="text-xl text-gray-600 mb-8 max-w-2xl">
-                Your 24/7 intelligent assistant for all Chesapeake City government services,
-                departments, permits, and community information.
-              </p>
-              <div className="flex flex-wrap gap-4">
-                <Link
-                  href="#live-demo"
-                  className="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white bg-blue-700 hover:bg-blue-800 rounded-lg transition-all duration-300 hover:scale-105 active:scale-95"
-                >
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                  </svg>
-                  Try Live Demo
-                </Link>
+              <div className="flex space-x-4 mt-1 md:mt-0">
                 <a
-                  href="#features"
-                  className="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-blue-700 bg-white border-2 border-blue-700 hover:bg-blue-50 rounded-lg transition-all duration-300"
+                  href="#"
+                  onClick={handleLinkClick}
+                  className="text-gray-300 hover:text-white transition-colors"
                 >
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Learn More
+                  Accessibility
+                </a>
+                <a
+                  href="#"
+                  onClick={handleLinkClick}
+                  className="text-gray-300 hover:text-white transition-colors"
+                >
+                  Contact
+                </a>
+                <a
+                  href="#"
+                  onClick={handleLinkClick}
+                  className="text-gray-300 hover:text-white transition-colors"
+                >
+                  Site Map
                 </a>
               </div>
             </div>
-            <div className="relative">
-              <div className="bg-white rounded-2xl shadow-2xl p-8 border border-gray-200">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center">
-                    <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center mr-4">
-                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-gray-900">Agentic AI Assistant</h3>
-                      <p className="text-sm text-gray-500">Online • 24/7 Available</p>
-                    </div>
-                  </div>
-                  <div className="flex space-x-2">
-                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                    <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                    <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <div className="bg-blue-50 rounded-xl p-4">
-                    <p className="text-gray-700">
-                      "Hello! I'm your Chesapeake City Agentic AI Assistant. I can help you with permits, utilities, city services, and more. What can I help you with today?"
-                    </p>
-                  </div>
-                  <div className="bg-gray-100 rounded-xl p-4 ml-8">
-                    <p className="text-gray-700">
-                      "How do I apply for a building permit?"
-                    </p>
-                  </div>
-                  <div className="bg-blue-50 rounded-xl p-4">
-                    <p className="text-gray-700">
-                      "I can guide you through the building permit process step-by-step. You'll need to submit plans, pay fees, and schedule inspections. Would you like me to provide the detailed requirements?"
-                    </p>
-                  </div>
-                </div>
+          </div>
+        </div>
+
+        {/* Logo and search */}
+        <div className="container mx-auto px-4 py-3">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center mb-4 md:mb-0">
+              <div className="chesapeake-bg-primary text-white w-10 h-10 rounded flex items-center justify-center font-bold text-lg mr-3">
+                CC
               </div>
-              {/* Decorative elements */}
-              <div className="absolute -top-4 -right-4 w-24 h-24 bg-blue-200 rounded-full blur-xl opacity-70"></div>
-              <div className="absolute -bottom-4 -left-4 w-32 h-32 bg-blue-100 rounded-full blur-xl opacity-70"></div>
+              <div>
+                <h1 className="text-[1.7em] font-bold chesapeake-text-primary">
+                  City of Chesapeake
+                </h1>
+                <p className="text-[#898a8e] text-sm">
+                  Official Government Website
+                </p>
+              </div>
+            </div>
+
+            {/* Search bar */}
+            <div className="relative w-full md:w-80">
+              <input
+                type="text"
+                placeholder="Search services..."
+                className="w-full px-3 py-2 border border-[#898a8e] rounded focus:outline-none focus:ring-2 focus:ring-[#a21f4b] focus:border-transparent"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              <button className="absolute right-2 top-1/2 transform -translate-y-1/2 text-[#898a8e]">
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
+                </svg>
+              </button>
             </div>
           </div>
         </div>
-      </section>
 
-      {/* Features Section */}
-      <section id="features" className="py-16 md:py-24 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              Why Choose Our Agentic AI Chatbot?
-            </h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Advanced AI technology designed specifically for Chesapeake City government services
-            </p>
+        {/* Main navigation */}
+        <nav className="border-t border-[#898a8e]">
+          <div className="container mx-auto px-4">
+            <div className="flex flex-wrap justify-center md:justify-start py-2 space-x-0 md:space-x-6 space-y-1 md:space-y-0">
+              {mainNavigation.map((item) => (
+                <a
+                  key={item.label}
+                  href={item.href}
+                  onClick={handleLinkClick}
+                  className="nav-hover font-open-sans font-semibold text-[#454545] uppercase px-3 py-1.5 md:px-2 md:py-1 text-sm hover:chesapeake-bg-primary hover:text-white rounded transition-all duration-300 ease-in-out"
+                >
+                  {item.label}
+                </a>
+              ))}
+            </div>
           </div>
+        </nav>
+      </header>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {features.map((feature, index) => (
-              <div
-                key={index}
-                className="bg-gray-50 rounded-2xl p-8 border border-gray-200 hover:border-blue-300 hover:shadow-lg transition-all duration-300 group"
-              >
-                <div className="w-14 h-14 bg-blue-100 rounded-xl flex items-center justify-center mb-6 group-hover:bg-blue-200 transition-colors">
-                  <div className="text-blue-700 text-2xl">
-                    {feature.icon}
+      {/* Main content - offset for fixed header */}
+      <main className="pt-40">
+        {/* Hero section */}
+        <section className="chesapeake-bg-primary bg-gradient-to-b from-[#a21f4b] via-[#a21f4b]/95 to-[#a21f4b]/80 py-8">
+          <div className="container mx-auto px-4">
+            <div className="text-white">
+              <h2 className="text-[1.3em] font-bold mb-4">
+                Welcome to Chesapeake
+              </h2>
+              <p className="mb-6 max-w-2xl">
+                Discover city services, stay informed about local news, and
+                connect with your government. We are committed to providing
+                excellent service to our residents, businesses, and visitors.
+              </p>
+              <div className="flex space-x-4">
+                <button
+                  onClick={handleButtonClick}
+                  className="bg-white chesapeake-text-primary px-5 py-2 rounded font-semibold hover:bg-gray-100 transition-colors"
+                >
+                  Explore Services
+                </button>
+                <button
+                  onClick={handleButtonClick}
+                  className="bg-transparent border-2 border-white text-white px-5 py-2 rounded font-semibold hover:bg-white/10 transition-colors"
+                >
+                  View Calendar
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* News section */}
+        <section className="bg-[#fafafa] py-8">
+          <div className="container mx-auto px-4">
+            <h3 className="text-[1.1em] font-bold chesapeake-text-primary border-b-4 border-[#898a8e] pb-2 mb-6">
+              News & Updates
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {newsItems.map((item, index) => (
+                <div
+                  key={index}
+                  className="bg-white border border-[#898a8e] rounded p-4 hover:shadow-md transition-shadow"
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <h4 className="font-semibold chesapeake-text-secondary">
+                      {item.title}
+                    </h4>
+                    <span className="bg-[#f2f2f2] text-[#454545] text-xs font-medium px-3 py-1 rounded-full">
+                      {item.category}
+                    </span>
                   </div>
+                  <p className="text-[#898a8e] text-sm mb-3">
+                    Posted on {item.date}
+                  </p>
+                  <p className="mb-4">{item.description}</p>
+                  <a
+                    href="#"
+                    onClick={handleLinkClick}
+                    className="chesapeake-text-primary font-medium hover:underline inline-flex items-center"
+                  >
+                    Read More
+                    <svg
+                      className="w-4 h-4 ml-1"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M14 5l7 7m0 0l-7 7m7-7H3"
+                      />
+                    </svg>
+                  </a>
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-4">
-                  {feature.title}
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Services and quick links */}
+        <section className="py-12">
+          <div className="container mx-auto px-4">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* City services */}
+              <div>
+                <h3 className="text-[1.1em] font-bold chesapeake-text-secondary mb-6">
+                  City Services
                 </h3>
-                <p className="text-gray-600 mb-4">
-                  {feature.description}
-                </p>
-                <ul className="space-y-2">
-                  {feature.bullets.map((bullet, bulletIndex) => (
-                    <li key={bulletIndex} className="flex items-center text-sm text-gray-500">
-                      <svg className="w-4 h-4 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                <div className="bg-white border border-[#898a8e] rounded p-4">
+                  <ul className="space-y-2">
+                    {quickLinks.slice(0, 6).map((link, index) => (
+                      <li key={index}>
+                        <a
+                          href={link.href}
+                          onClick={handleLinkClick}
+                          className="block py-2 px-3 chesapeake-text-secondary hover:chesapeake-bg-primary hover:text-white rounded transition-colors"
+                        >
+                          {link.label}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              {/* Quick links */}
+              <div>
+                <h3 className="text-[1.1em] font-bold chesapeake-text-secondary mb-6">
+                  Quick Links
+                </h3>
+                <div className="bg-white border border-[#898a8e] rounded p-4">
+                  <ul className="space-y-2">
+                    {quickLinks.slice(6).map((link, index) => (
+                      <li key={index}>
+                        <a
+                          href={link.href}
+                          onClick={handleLinkClick}
+                          className="block py-2 px-3 chesapeake-text-secondary hover:chesapeake-bg-primary hover:text-white rounded transition-colors"
+                        >
+                          {link.label}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              {/* Contact information */}
+              <div>
+                <h3 className="text-[1.1em] font-bold chesapeake-text-secondary mb-6">
+                  Contact Information
+                </h3>
+                <div className="bg-white border border-[#898a8e] rounded p-4">
+                  <div className="space-y-4">
+                    <div className="flex items-start">
+                      <svg
+                        className="w-5 h-5 chesapeake-text-primary mt-0.5 mr-3"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                        />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                        />
                       </svg>
-                      {bullet}
+                      <div>
+                        <div className="font-semibold">City Hall</div>
+                        <div className="text-sm">306 Cedar Road</div>
+                        <div className="text-sm">Chesapeake, VA 23320</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center">
+                      <svg
+                        className="w-5 h-5 chesapeake-text-primary mr-3"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+                        />
+                      </svg>
+                      <div>(757) 382-6000</div>
+                    </div>
+                    <div className="flex items-center">
+                      <svg
+                        className="w-5 h-5 chesapeake-text-primary mr-3"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                        />
+                      </svg>
+                      <div>info@cityofchesapeake.net</div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleButtonClick}
+                    className="w-full mt-6 chesapeake-bg-secondary text-white py-2 rounded font-semibold hover:chesapeake-bg-secondary-hover transition-colors"
+                  >
+                    Contact Form
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Footer */}
+        <footer className="chesapeake-bg-secondary bg-gradient-to-t from-[#072d4df5] to-[#0c5898cc] text-white py-10">
+          <div className="container mx-auto px-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+              <div>
+                <h5 className="text-lg font-bold mb-4">City of Chesapeake</h5>
+                <p className="text-gray-300 text-sm">
+                  Providing quality services to our residents, businesses, and
+                  visitors since 1963.
+                </p>
+              </div>
+              <div>
+                <h6 className="font-bold mb-3">Departments</h6>
+                <ul className="space-y-2 text-sm text-gray-300">
+                  {departments.map((dept) => (
+                    <li key={dept}>
+                      <a
+                        href="#"
+                        onClick={handleLinkClick}
+                        className="hover:text-white transition-colors"
+                      >
+                        {dept}
+                      </a>
                     </li>
                   ))}
                 </ul>
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* How It Works Section */}
-      <section className="py-16 md:py-24 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              How Agentic AI Technology Works
-            </h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Our advanced system combines multiple AI capabilities for comprehensive assistance
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-4 gap-8">
-            {steps.map((step, index) => (
-              <div key={index} className="text-center">
-                <div className="relative">
-                  <div className="w-20 h-20 bg-blue-600 text-white rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-6 relative z-10">
-                    {step.number}
-                  </div>
-                  {index < steps.length - 1 && (
-                    <div className="hidden md:block absolute top-10 left-1/2 w-full h-0.5 bg-blue-200 -translate-y-1/2"></div>
-                  )}
-                </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-4">
-                  {step.title}
-                </h3>
-                <p className="text-gray-600">
-                  {step.description}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Live Demo Section */}
-      <section id="live-demo" className="py-16 md:py-24 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid lg:grid-cols-3 gap-12">
-            <div className="lg:col-span-1">
-              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">
-                Try Our Live Agentic AI Demo
-              </h2>
-              <p className="text-gray-600 mb-8">
-                Experience firsthand how our advanced Agentic AI chatbot can assist you with Chesapeake City services.
-              </p>
-
-              <div className="space-y-6">
-                <div className="bg-blue-50 rounded-xl p-6 border border-blue-200">
-                  <h4 className="font-bold text-gray-900 mb-3">Try Asking About:</h4>
-                  <div className="space-y-3">
-                    {demoQuestions.map((question, index) => (
-                      <button
-                        key={index}
-                        className="block w-full text-left px-4 py-3 bg-white hover:bg-blue-100 border border-gray-200 rounded-lg transition-colors text-gray-700"
-                        onClick={() => {
-                          // This would be connected to the chat interface
-                          console.log('Question:', question);
-                        }}
+              <div>
+                <h6 className="font-bold mb-3">Resources</h6>
+                <ul className="space-y-2 text-sm text-gray-300">
+                  {resources.map((resource) => (
+                    <li key={resource}>
+                      <a
+                        href="#"
+                        onClick={handleLinkClick}
+                        className="hover:text-white transition-colors"
                       >
-                        {question}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="bg-gray-50 rounded-xl p-6">
-                  <h4 className="font-bold text-gray-900 mb-3">Key Features in Demo:</h4>
-                  <ul className="space-y-2">
-                    <li className="flex items-center text-gray-600">
-                      <svg className="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      Real-time responses with streaming
+                        {resource}
+                      </a>
                     </li>
-                    <li className="flex items-center text-gray-600">
-                      <svg className="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      Context-aware conversation
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <h6 className="font-bold mb-3">Legal</h6>
+                <ul className="space-y-2 text-sm text-gray-300">
+                  {legalLinks.map((legal) => (
+                    <li key={legal}>
+                      <a
+                        href="#"
+                        onClick={handleLinkClick}
+                        className="hover:text-white transition-colors"
+                      >
+                        {legal}
+                      </a>
                     </li>
-                    <li className="flex items-center text-gray-600">
-                      <svg className="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      Source citations from official website
-                    </li>
-                    <li className="flex items-center text-gray-600">
-                      <svg className="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      Suggested follow-up questions
-                    </li>
-                  </ul>
-                </div>
+                  ))}
+                </ul>
               </div>
             </div>
-
-            <div className="lg:col-span-2">
-              <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
-                <div className="bg-blue-700 text-white px-6 py-4">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <h3 className="text-xl font-bold">Chesapeake City Agentic AI Chatbot</h3>
-                      <p className="text-blue-100 text-sm">Live Demo • Powered by DeepSeek AI</p>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                      <span className="text-sm">Online</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="h-[600px]">
-                  <ChatInterface
-                    apiEndpoint="/api/chat"
-                    streamingEnabled={true}
-                    initialMessages={[
-                      {
-                        id: 'welcome',
-                        role: 'assistant',
-                        content: 'Hello! I\'m the Chesapeake City Agentic AI Chatbot. I can help you with information about city services, departments, permits, utilities, events, and more. What can I assist you with today?',
-                        timestamp: new Date(),
-                      },
-                    ]}
-                  />
-                </div>
-              </div>
+            <div className="border-t border-gray-700 mt-8 pt-6 text-center text-gray-400 text-sm">
+              <p>
+                © {new Date().getFullYear()} City of Chesapeake, Virginia. All
+                rights reserved.
+              </p>
+              <p className="mt-1">
+                This is a demonstration site. All links are non-functional.
+              </p>
             </div>
           </div>
-        </div>
-      </section>
+        </footer>
+      </main>
 
-      {/* Trust & Security Section */}
-      <section className="py-16 md:py-24 bg-gray-900 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Trusted & Secure Government Technology
-            </h2>
-            <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-              Built with security, privacy, and reliability as top priorities
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            {trustItems.map((item, index) => (
-              <div key={index} className="text-center p-8 bg-gray-800 rounded-2xl">
-                <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                  {item.icon}
-                </div>
-                <h3 className="text-xl font-bold mb-4">{item.title}</h3>
-                <p className="text-gray-300">{item.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-16 md:py-24 bg-gradient-to-r from-blue-600 to-blue-800 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl md:text-4xl font-bold mb-6">
-            Ready to Transform Citizen Services?
-          </h2>
-          <p className="text-xl mb-8 max-w-3xl mx-auto opacity-90">
-            Join the future of government-citizen interaction with our Agentic AI Chatbot technology.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              href="#live-demo"
-              className="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-blue-700 bg-white hover:bg-gray-100 rounded-lg transition-all duration-300 hover:scale-105"
-            >
-              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Watch Full Demo
-            </Link>
-            <button className="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white bg-transparent border-2 border-white hover:bg-white/10 rounded-lg transition-all duration-300">
-              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-              </svg>
-              Schedule a Consultation
-            </button>
-          </div>
-        </div>
-      </section>
-    </>
+      {/* Chat Widget - Functional component */}
+      <ChatWidget />
+    </div>
   );
 }
-
-// Data definitions
-const features = [
-  {
-    icon: '🤖',
-    title: 'Agentic AI Intelligence',
-    description: 'Advanced AI that doesn\'t just answer questions - it understands context, remembers conversations, and provides proactive guidance.',
-    bullets: [
-      'Context-aware responses',
-      'Multi-step process guidance',
-      'Proactive suggestions',
-      'Conversation memory',
-    ],
-  },
-  {
-    icon: '⚡',
-    title: '24/7 Instant Response',
-    description: 'Available round-the-clock to assist citizens when they need it, without waiting for office hours.',
-    bullets: [
-      'Instant response time',
-      'No wait times or hold music',
-      'Consistent service quality',
-      'Scalable to handle high demand',
-    ],
-  },
-  {
-    icon: '🔒',
-    title: 'Official & Accurate',
-    description: 'All information comes directly from the Chesapeake City official website - no hallucinations or misinformation.',
-    bullets: [
-      'Source-verified information',
-      'Regular content updates',
-      'No AI hallucinations',
-      'Government-approved responses',
-    ],
-  },
-  {
-    icon: '📱',
-    title: 'Ultra-Responsive Design',
-    description: 'Works perfectly on any device - desktop, tablet, or mobile - ensuring accessibility for all citizens.',
-    bullets: [
-      'Mobile-first design',
-      'Touch-friendly interface',
-      'Fast loading times',
-      'Accessibility compliant',
-    ],
-  },
-  {
-    icon: '🔄',
-    title: 'Continuous Improvement',
-    description: 'The system learns from interactions to provide better service over time while maintaining strict quality controls.',
-    bullets: [
-      'Usage analytics',
-      'Performance optimization',
-      'Regular model updates',
-      'Feedback integration',
-    ],
-  },
-  {
-    icon: '💰',
-    title: 'Cost-Effective Solution',
-    description: 'Reduce call center volume and staff workload while improving citizen satisfaction and service delivery.',
-    bullets: [
-      'Reduced operational costs',
-      'Increased efficiency',
-      'Better resource allocation',
-      'High citizen satisfaction',
-    ],
-  },
-];
-
-const steps = [
-  {
-    number: '1',
-    title: 'Understand Query',
-    description: 'Advanced natural language processing to understand citizen questions in context',
-  },
-  {
-    number: '2',
-    title: 'Retrieve Information',
-    description: 'Search official Chesapeake City website content for accurate, up-to-date information',
-  },
-  {
-    number: '3',
-    title: 'Generate Response',
-    description: 'Create helpful, actionable responses with citations and next steps',
-  },
-  {
-    number: '4',
-    title: 'Provide Guidance',
-    description: 'Offer follow-up questions, related services, and contact information',
-  },
-];
-
-const demoQuestions = [
-  'How do I apply for a building permit?',
-  'What are the trash pickup schedules?',
-  'How do I report a pothole?',
-  'Where can I pay my water bill online?',
-  'What city events are happening this month?',
-  'How do I contact the police department?',
-];
-
-const trustItems = [
-  {
-    icon: (
-      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-      </svg>
-    ),
-    title: 'Secure & Private',
-    description: 'All conversations are encrypted and no personal data is stored without explicit consent.',
-  },
-  {
-    icon: (
-      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-    ),
-    title: 'Accurate Information',
-    description: 'Responses are grounded in official Chesapeake City website content with source citations.',
-  },
-  {
-    icon: (
-      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-      </svg>
-    ),
-    title: 'High Performance',
-    description: 'Built for reliability with 99.9% uptime and sub-second response times.',
-  },
-];
-```
-
-Now I need to create a Docker deployment setup for the VPS. Let me create the Dockerfile and docker-compose.yml files. First, let me check what files we need. We have a Next.js app with SQLite backend. We need Docker configuration that includes:
-
-1. Dockerfile for the Next.js app
-2. docker-compose.yml for orchestration
-3. nginx configuration for production
-4. environment variable setup
-
-Let me start with Dockerfile.I'll create a comprehensive Docker deployment setup for the Chesapeake Agentic AI Chatbot.

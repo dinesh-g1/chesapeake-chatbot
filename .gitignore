@@ -39,3 +39,25 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Playwright MCP
+/.playwright-mcp/
+
+# Data and vector store
+/data/
+
+# Example HTML/CSS files
+/chesapeake-html-css/
+
+# Duplicate directories
+/chesapeake-chatbot/
+
+# Screenshots
+*.png
+*.jpg
+*.jpeg
+*.gif
+
+# Logs
+*.log
+logs/
