@@ -61,8 +61,7 @@ export class CheerioContentScraper implements ContentScraper {
       const response = await axios.get(normalizedUrl, {
         headers: {
           "User-Agent": this.userAgent,
-          Accept:
-            "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
           "Accept-Language": "en-US,en;q=0.5",
         },
         timeout: 30000,
@@ -99,8 +98,7 @@ export class CheerioContentScraper implements ContentScraper {
           description,
           keywords,
           lastModified,
-          contentType:
-            (response.headers["content-type"] as string) || "text/html",
+          contentType: response.headers["content-type"] || "text/html",
         },
         sections,
         links,
@@ -317,10 +315,7 @@ export class CheerioContentScraper implements ContentScraper {
     return this.cleanText(bodyText);
   }
 
-  private extractSections(
-    $: cheerio.CheerioAPI,
-    url: string,
-  ): ContentSection[] {
+  private extractSections($: cheerio.CheerioAPI, url: string): ContentSection[] {
     const sections: ContentSection[] = [];
 
     // Extract headings and their content
@@ -347,7 +342,7 @@ export class CheerioContentScraper implements ContentScraper {
             heading,
             level,
             content: content.trim(),
-            html: $(element).prop("outerHTML") || undefined,
+            html: $(element).prop("outerHTML"),
           });
         }
       });

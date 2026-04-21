@@ -268,7 +268,7 @@ class RealRAGPipeline implements RAGPipeline {
     const conversationHistory = context?.conversationHistory || [];
     const historyText = conversationHistory
       .slice(-this.config.contextWindow)
-      .map((msg: ChatMessage) => `${msg.role}: ${msg.content}`)
+      .map((msg) => `${msg.role}: ${msg.content}`)
       .join("\n");
 
     // Prepare system prompt with context
