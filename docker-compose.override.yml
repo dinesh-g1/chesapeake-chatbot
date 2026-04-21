@@ -1,0 +1,200 @@
+version: '3.8'
+
+services:
+  # Override chatbot service for local development
+  chatbot:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev  # Optional: Create a separate dev Dockerfile
+    container_name: chesapeake-chatbot-dev
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+      - "9229:9229"  # Node.js debug port
+    environment:
+      # Development environment
+      NODE_ENV: development
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+
+      # Development LLM Configuration
+      LLM_PROVIDER: ${LLM_PROVIDER:-mock}  # Use mock for development to save costs
+      LLM_MODEL: mock-model
+      LLM_API_KEY: ${LLM_API_KEY:-mock-key}
+      LLM_BASE_URL: ${LLM_BASE_URL:-http://localhost:3000}
+      LLM_TEMPERATURE: 0.7
+      LLM_MAX_TOKENS: 4000
+
+      # Development Embeddings Configuration
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-mock}
+      EMBEDDING_MODEL: mock-embedding
+      EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-mock-key}
+      EMBEDDING_DIMENSION: 1536
+
+      # Development Vector Store
+      VECTOR_STORE_PROVIDER: ${VECTOR_STORE_PROVIDER:-sqlite}
+      DATABASE_URL: sqlite:///app/data/vector_store.db
+
+      # Development Scraper Configuration
+      SCRAPER_BASE_URL: ${SCRAPER_BASE_URL:-https://www.cityofchesapeake.net}
+      SCRAPER_MAX_PAGES: 10  # Smaller limit for development
+      SCRAPER_DELAY: 500  # Shorter delay for development
+
+      # Development RAG Configuration
+      RAG_CHUNK_SIZE: 512
+      RAG_CHUNK_OVERLAP: 50
+      RAG_TOP_K: 3  # Fewer results for development
+      RAG_SCORE_THRESHOLD: 0.6
+
+      # Development Chat Configuration
+      CHAT_MAX_HISTORY_LENGTH: 20
+      CHAT_SESSION_TIMEOUT: 1800000
+      CHAT_ENABLE_STREAMING: true
+      CHAT_DEFAULT_TEMPERATURE: 0.7
+
+      # Development Deployment Configuration
+      API_URL: http://localhost:3000
+      FRONTEND_URL: http://localhost:3000
+      LOG_LEVEL: debug  # More verbose logging for development
+      ENABLE_ANALYTICS: false
+      ENABLE_LOGGING: true
+
+      # Development Data Ingestion
+      RUN_DATA_INGESTION: ${RUN_DATA_INGESTION:-false}
+      INGESTION_MAX_PAGES: 10  # Smaller for development
+      INGESTION_MAX_DEPTH: 1
+      INGESTION_CHUNK_SIZE: 512
+      INGESTION_CHUNK_OVERLAP: 50
+      INGESTION_SKIP_EMBEDDING: ${INGESTION_SKIP_EMBEDDING:-true}  # Skip embeddings in dev
+      INGESTION_VERBOSE: true
+
+      # Debugging
+      VERBOSE_STARTUP: true
+      NODE_OPTIONS: --inspect=0.0.0.0:9229 --max-old-space-size=2048
+      DEBUG: app:*,lib:*,services:*
+
+      # Development flags
+      DEV_MODE: true
+      HOT_RELOAD: true
+      ENABLE_MOCK_PROVIDERS: true
+      SKIP_API_CHECKS: true
+    volumes:
+      # Mount local source code for hot reload
+      - .:/app
+      - /app/node_modules  # Preserve container node_modules
+      - ./data:/app/data
+      # Development configuration
+      - ./config/dev:/app/config:ro
+    networks:
+      - chatbot_network
+    healthcheck:
+      test: ["CMD", "node", "-e", "console.log('Development health check') || process.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "10"
+    stdin_open: true
+    tty: true
+    command: npm run dev  # Use dev command instead of start
+
+  # Development database viewer (optional)
+  db-viewer:
+    image: dpage/pgadmin4
+    container_name: chatbot-db-viewer
+    restart: unless-stopped
+    ports:
+      - "5050:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@localhost
+      PGADMIN_DEFAULT_PASSWORD: admin
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - chatbot_network
+    profiles:
+      - db-viewer
+
+  # Development monitoring (optional)
+  prometheus:
+    image: prom/prometheus
+    container_name: chatbot-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - chatbot_network
+    profiles:
+      - monitoring
+
+  grafana:
+    image: grafana/grafana
+    container_name: chatbot-grafana
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_INSTALL_PLUGINS: grafana-piechart-panel
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      - chatbot_network
+    depends_on:
+      - prometheus
+    profiles:
+      - monitoring
+
+# Networks
+networks:
+  chatbot_network:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/16
+
+# Volumes
+volumes:
+  pgadmin_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+# Profiles for optional development services
+profiles:
+  # Default profile includes only chatbot
+  default:
+    services:
+      - chatbot
+
+  # Full development environment
+  full-dev:
+    services:
+      - chatbot
+      - db-viewer
+      - prometheus
+      - grafana
+
+  # Minimal development (chatbot only)
+  minimal:
+    services:
+      - chatbot

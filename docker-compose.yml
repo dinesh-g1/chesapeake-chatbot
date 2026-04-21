@@ -1,0 +1,209 @@
+version: "3.8"
+
+services:
+  # Chesapeake City Agentic AI Chatbot - Main Application
+  chatbot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: chesapeake-chatbot
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # Application Configuration
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+
+      # LLM Configuration (DeepSeek)
+      LLM_PROVIDER: ${LLM_PROVIDER:-deepseek}
+      LLM_MODEL: ${LLM_MODEL:-deepseek-chat}
+      LLM_API_KEY: ${LLM_API_KEY}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://api.deepseek.com}
+      LLM_TEMPERATURE: ${LLM_TEMPERATURE:-0.7}
+      LLM_MAX_TOKENS: ${LLM_MAX_TOKENS:-4000} # Increased for comprehensive responses
+
+      # Embeddings Configuration
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-deepseek}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-deepseek-embedding}
+      EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-${LLM_API_KEY}}
+      EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-${LLM_BASE_URL:-https://api.deepseek.com}}
+      EMBEDDING_DIMENSION: ${EMBEDDING_DIMENSION:-1536}
+
+      # Vector Store Configuration
+      VECTOR_STORE_PROVIDER: ${VECTOR_STORE_PROVIDER:-sqlite}
+      DATABASE_URL: ${DATABASE_URL:-sqlite:///app/data/vector_store.db}
+
+      # Scraper Configuration
+      SCRAPER_BASE_URL: ${SCRAPER_BASE_URL:-https://www.cityofchesapeake.net}
+      SCRAPER_MAX_PAGES: ${SCRAPER_MAX_PAGES:-30}
+      SCRAPER_DELAY: ${SCRAPER_DELAY:-1000}
+
+      # RAG Configuration
+      RAG_CHUNK_SIZE: ${RAG_CHUNK_SIZE:-512}
+      RAG_CHUNK_OVERLAP: ${RAG_CHUNK_OVERLAP:-50}
+      RAG_TOP_K: ${RAG_TOP_K:-5}
+      RAG_SCORE_THRESHOLD: ${RAG_SCORE_THRESHOLD:-0.7}
+
+      # Chat Configuration
+      CHAT_MAX_HISTORY_LENGTH: ${CHAT_MAX_HISTORY_LENGTH:-20}
+      CHAT_SESSION_TIMEOUT: ${CHAT_SESSION_TIMEOUT:-1800000}
+      CHAT_ENABLE_STREAMING: ${CHAT_ENABLE_STREAMING:-true}
+      CHAT_DEFAULT_TEMPERATURE: ${CHAT_DEFAULT_TEMPERATURE:-0.7}
+
+      # Deployment Configuration
+      API_URL: ${API_URL:-http://localhost:3000}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      ENABLE_ANALYTICS: ${ENABLE_ANALYTICS:-false}
+
+      # Data Ingestion (run on first startup)
+      RUN_DATA_INGESTION: ${RUN_DATA_INGESTION:-false}
+      INGESTION_MAX_PAGES: ${INGESTION_MAX_PAGES:-30}
+      INGESTION_MAX_DEPTH: ${INGESTION_MAX_DEPTH:-2}
+      INGESTION_CHUNK_SIZE: ${INGESTION_CHUNK_SIZE:-512}
+      INGESTION_CHUNK_OVERLAP: ${INGESTION_CHUNK_OVERLAP:-50}
+      INGESTION_SKIP_EMBEDDING: ${INGESTION_SKIP_EMBEDDING:-false}
+      INGESTION_VERBOSE: ${INGESTION_VERBOSE:-false}
+
+      # Debugging
+      VERBOSE_STARTUP: ${VERBOSE_STARTUP:-false}
+      NODE_OPTIONS: ${NODE_OPTIONS:---max-old-space-size=4096}
+    volumes:
+      # Persistent data storage
+      - chatbot_data:/app/data
+      # Optional: Mount custom configuration
+      - ./config:/app/config:ro
+    networks:
+      - chatbot_network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:3000/api/chat', {method: 'GET'}).then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+
+  # Nginx Reverse Proxy (Optional - for production deployment)
+  nginx:
+    image: nginx:alpine
+    container_name: chatbot-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./nginx/logs:/var/log/nginx
+    depends_on:
+      - chatbot
+    networks:
+      - chatbot_network
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    profiles:
+      - production
+
+  # PostgreSQL with pgvector (Optional - for production vector storage)
+  postgres:
+    image: ankane/pgvector
+    container_name: chatbot-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-chesapeake_chatbot}
+      POSTGRES_USER: ${POSTGRES_USER:-chatbot_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme123}
+      POSTGRES_INITDB_ARGS: ${POSTGRES_INITDB_ARGS:---encoding=UTF8}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - chatbot_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-chatbot_user}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    profiles:
+      - production
+      - postgres
+
+  # Redis for caching (Optional - for production session storage)
+  redis:
+    image: redis:alpine
+    container_name: chatbot-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-changeme123}
+    volumes:
+      - redis_data:/data
+    networks:
+      - chatbot_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    profiles:
+      - production
+      - redis
+
+# Networks
+networks:
+  chatbot_network:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/16
+
+# Volumes
+volumes:
+  chatbot_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
