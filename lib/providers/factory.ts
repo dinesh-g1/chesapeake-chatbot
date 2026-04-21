@@ -25,6 +25,7 @@ import { configManager } from "../config";
 // Import real implementations
 import { DeepSeekLLMProvider } from "./implementations/deepseek-llm";
 import { DeepSeekEmbeddingProvider } from "./implementations/deepseek-embeddings";
+import { QwenEmbeddingProvider } from "./implementations/qwen-embeddings";
 import { CheerioContentScraper } from "./implementations/cheerio-scraper";
 import { SQLiteVectorStore } from "./implementations/sqlite-vector-store";
 
@@ -268,7 +269,7 @@ class RealRAGPipeline implements RAGPipeline {
     const conversationHistory = context?.conversationHistory || [];
     const historyText = conversationHistory
       .slice(-this.config.contextWindow)
-      .map((msg) => `${msg.role}: ${msg.content}`)
+      .map((msg: ChatMessage) => `${msg.role}: ${msg.content}`)
       .join("\n");
 
     // Prepare system prompt with context
@@ -362,6 +363,8 @@ export class ChesapeakeProviderFactory implements ProviderFactory {
       case "local":
         // Would return local embeddings implementation
         throw new Error("Local embeddings not implemented yet");
+      case "qwen":
+        return new QwenEmbeddingProvider(config);
       case "mock":
         return new MockEmbeddingProvider(config);
       default:

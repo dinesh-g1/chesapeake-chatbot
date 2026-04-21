@@ -28,8 +28,8 @@ services:
       EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-deepseek}
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-deepseek-embedding}
       EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-${LLM_API_KEY}}
-      EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-${LLM_BASE_URL:-https://api.deepseek.com}}
-      EMBEDDING_DIMENSION: ${EMBEDDING_DIMENSION:-1536}
+      EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-http://ollama:11434}
+      EMBEDDING_DIMENSION: ${EMBEDDING_DIMENSION:-2048}
 
       # Vector Store Configuration
       VECTOR_STORE_PROVIDER: ${VECTOR_STORE_PROVIDER:-sqlite}
@@ -132,6 +132,65 @@ services:
     profiles:
       - production
 
+  # Ollama for local Qwen embeddings (Optional)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: chatbot-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    environment:
+      OLLAMA_KEEP_ALIVE: 24h
+      OLLAMA_HOST: 0.0.0.0
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - chatbot_network
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    profiles:
+      - ollama
+      - production
+
+  # PostgreSQL with pgvector (Optional - for production vector storage)
+  postgres:
+    image: ankane/pgvector
+    container_name: chatbot-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-chesapeake_chatbot}
+      POSTGRES_USER: ${POSTGRES_USER:-chatbot_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme123}
+      POSTGRES_INITDB_ARGS: ${POSTGRES_INITDB_ARGS:---encoding=UTF8}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - chatbot_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-chatbot_user}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    profiles:
+      - production
+      - postgres
+
   # PostgreSQL with pgvector (Optional - for production vector storage)
   postgres:
     image: ankane/pgvector
@@ -206,4 +265,6 @@ volumes:
   postgres_data:
     driver: local
   redis_data:
+    driver: local
+  ollama_data:
     driver: local

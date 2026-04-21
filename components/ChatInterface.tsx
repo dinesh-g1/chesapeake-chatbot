@@ -220,13 +220,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               switch (parsed.type) {
                 case "metadata":
                   if (!assistantMessage) {
-                    assistantMessage = {
+                    const newAssistantMessage: ChatMessage = {
                       id: generateMessageId(),
                       role: "assistant",
                       content: "",
                       timestamp: new Date(),
                     };
-                    setMessages((prev) => [...prev, assistantMessage]);
+                    assistantMessage = newAssistantMessage;
+                    setMessages((prev) => [...prev, newAssistantMessage]);
                     if (parsed.conversationId) {
                       setCurrentConversationId(parsed.conversationId);
                     }

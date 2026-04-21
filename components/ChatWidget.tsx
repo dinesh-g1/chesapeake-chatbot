@@ -217,7 +217,6 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
                 sessionId={sessionId}
                 apiEndpoint={apiEndpoint}
                 streamingEnabled={streamingEnabled}
-                isExpanded={isExpanded}
               />
             </div>
           </div>

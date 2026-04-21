@@ -8,12 +8,18 @@ export interface LLMProvider {
   /**
    * Generate a completion based on the given messages
    */
-  generateCompletion(messages: ChatMessage[], options?: LLMGenerateOptions): Promise<LLMResponse>;
+  generateCompletion(
+    messages: ChatMessage[],
+    options?: LLMGenerateOptions,
+  ): Promise<LLMResponse>;
 
   /**
    * Generate a streaming completion for real-time responses
    */
-  generateStreamingCompletion(messages: ChatMessage[], options?: LLMGenerateOptions): AsyncIterable<string>;
+  generateStreamingCompletion(
+    messages: ChatMessage[],
+    options?: LLMGenerateOptions,
+  ): AsyncIterable<string>;
 
   /**
    * Get the model name being used
@@ -55,7 +61,10 @@ export interface EmbeddingProvider {
   /**
    * Generate embeddings for the given texts
    */
-  generateEmbeddings(texts: string[], options?: EmbeddingOptions): Promise<EmbeddingResult>;
+  generateEmbeddings(
+    texts: string[],
+    options?: EmbeddingOptions,
+  ): Promise<EmbeddingResult>;
 
   /**
    * Get the dimension size of the embeddings
@@ -94,12 +103,18 @@ export interface VectorStore {
   /**
    * Add documents to the vector store
    */
-  addDocuments(documents: VectorDocument[], options?: VectorStoreOptions): Promise<void>;
+  addDocuments(
+    documents: VectorDocument[],
+    options?: VectorStoreOptions,
+  ): Promise<void>;
 
   /**
    * Search for similar documents
    */
-  similaritySearch(query: string | number[], options?: VectorSearchOptions): Promise<VectorSearchResult[]>;
+  similaritySearch(
+    query: string | number[],
+    options?: VectorSearchOptions,
+  ): Promise<VectorSearchResult[]>;
 
   /**
    * Search with metadata filtering
@@ -107,7 +122,7 @@ export interface VectorStore {
   similaritySearchWithFilter(
     query: string | number[],
     filter: Record<string, any>,
-    options?: VectorSearchOptions
+    options?: VectorSearchOptions,
   ): Promise<VectorSearchResult[]>;
 
   /**
@@ -175,7 +190,10 @@ export interface ContentScraper {
   /**
    * Scrape multiple URLs
    */
-  scrapeMultiple(urls: string[], options?: ScrapeOptions): Promise<ScrapedContent[]>;
+  scrapeMultiple(
+    urls: string[],
+    options?: ScrapeOptions,
+  ): Promise<ScrapedContent[]>;
 
   /**
    * Extract sitemap URLs from a website
@@ -219,7 +237,7 @@ export interface ScrapeOptions {
 
 export interface ChatMessage {
   id: string;
-  role: 'user' | 'assistant' | 'system';
+  role: "user" | "assistant" | "system";
   content: string;
   timestamp: Date;
   metadata?: {
@@ -336,7 +354,7 @@ export interface AppConfig {
 }
 
 export interface LLMConfig {
-  provider: 'openai' | 'deepseek' | 'anthropic' | 'local' | 'mock';
+  provider: "openai" | "deepseek" | "anthropic" | "local" | "mock";
   model: string;
   apiKey?: string;
   baseUrl?: string;
@@ -346,7 +364,7 @@ export interface LLMConfig {
 }
 
 export interface EmbeddingConfig {
-  provider: 'openai' | 'deepseek' | 'local' | 'mock';
+  provider: "openai" | "deepseek" | "local" | "mock" | "qwen";
   model: string;
   apiKey?: string;
   baseUrl?: string;
@@ -355,7 +373,7 @@ export interface EmbeddingConfig {
 }
 
 export interface VectorStoreConfig {
-  provider: 'supabase' | 'pinecone' | 'chroma' | 'qdrant' | 'sqlite' | 'mock';
+  provider: "supabase" | "pinecone" | "chroma" | "qdrant" | "sqlite" | "mock";
   connectionString?: string;
   apiKey?: string;
   collectionName?: string;
@@ -364,7 +382,7 @@ export interface VectorStoreConfig {
 }
 
 export interface ScraperConfig {
-  provider: 'cheerio' | 'playwright' | 'mock';
+  provider: "cheerio" | "playwright" | "mock";
   baseUrl: string;
   maxDepth: number;
   maxPages: number;
@@ -392,12 +410,12 @@ export interface ChatConfig {
 }
 
 export interface DeploymentConfig {
-  environment: 'development' | 'staging' | 'production';
+  environment: "development" | "staging" | "production";
   apiUrl: string;
   frontendUrl: string;
   enableAnalytics: boolean;
   enableLogging: boolean;
-  logLevel: 'debug' | 'info' | 'warn' | 'error';
+  logLevel: "debug" | "info" | "warn" | "error";
 }
 
 // ============================================================================
@@ -409,11 +427,14 @@ export interface ProviderFactory {
   createEmbeddingProvider(config: EmbeddingConfig): EmbeddingProvider;
   createVectorStore(config: VectorStoreConfig): VectorStore;
   createContentScraper(config: ScraperConfig): ContentScraper;
-  createRAGPipeline(config: RAGConfig, providers: {
-    llm: LLMProvider;
-    embeddings: EmbeddingProvider;
-    vectorStore: VectorStore;
-  }): RAGPipeline;
+  createRAGPipeline(
+    config: RAGConfig,
+    providers: {
+      llm: LLMProvider;
+      embeddings: EmbeddingProvider;
+      vectorStore: VectorStore;
+    },
+  ): RAGPipeline;
 }
 
 // ============================================================================
@@ -424,7 +445,8 @@ export type DeepPartial<T> = {
   [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
 };
 
-export type RequiredKeys<T, K extends keyof T> = Required<Pick<T, K>> & Omit<T, K>;
+export type RequiredKeys<T, K extends keyof T> = Required<Pick<T, K>> &
+  Omit<T, K>;
 
 export interface ValidationResult {
   valid: boolean;
@@ -437,19 +459,25 @@ export interface ValidationResult {
 
 export interface EnvironmentVariables {
   // LLM Configuration
-  LLM_PROVIDER: 'openai' | 'deepseek' | 'anthropic' | 'local' | 'mock';
+  LLM_PROVIDER: "openai" | "deepseek" | "anthropic" | "local" | "mock";
   LLM_MODEL: string;
   LLM_API_KEY?: string;
   LLM_BASE_URL?: string;
 
   // Embeddings Configuration
-  EMBEDDING_PROVIDER: 'openai' | 'deepseek' | 'local' | 'mock';
+  EMBEDDING_PROVIDER: "openai" | "deepseek" | "local" | "mock" | "qwen";
   EMBEDDING_MODEL: string;
   EMBEDDING_API_KEY?: string;
   EMBEDDING_BASE_URL?: string;
 
   // Vector Store Configuration
-  VECTOR_STORE_PROVIDER: 'supabase' | 'pinecone' | 'chroma' | 'qdrant' | 'sqlite' | 'mock';
+  VECTOR_STORE_PROVIDER:
+    | "supabase"
+    | "pinecone"
+    | "chroma"
+    | "qdrant"
+    | "sqlite"
+    | "mock";
   SUPABASE_URL?: string;
   SUPABASE_KEY?: string;
   PINECONE_API_KEY?: string;
@@ -464,7 +492,7 @@ export interface EnvironmentVariables {
   SCRAPER_DELAY: string;
 
   // Application Configuration
-  NODE_ENV: 'development' | 'production' | 'test';
+  NODE_ENV: "development" | "production" | "test";
   PORT: string;
   API_URL: string;
   FRONTEND_URL: string;
@@ -475,5 +503,5 @@ export interface EnvironmentVariables {
 
   // Monitoring
   SENTRY_DSN?: string;
-  LOG_LEVEL: 'debug' | 'info' | 'warn' | 'error';
+  LOG_LEVEL: "debug" | "info" | "warn" | "error";
 }
