@@ -44,7 +44,7 @@ export class ChunkingService {
    */
   chunkContent(
     content: ScrapedContent,
-    options?: Partial<ChunkingOptions>
+    options?: Partial<ChunkingOptions>,
   ): ChunkingResult {
     const finalOptions = { ...this.defaultOptions, ...options };
     const baseMetadata = this.createBaseMetadata(content);
@@ -64,7 +64,7 @@ export class ChunkingService {
         baseMetadata,
         finalOptions,
         sectionStartIndex,
-        section.heading || "Content"
+        section.heading || "Content",
       );
 
       // Update metadata with section information
@@ -90,7 +90,7 @@ export class ChunkingService {
           baseMetadata,
           finalOptions,
           0,
-          "Content"
+          "Content",
         );
         allChunks.push(...chunks);
       }
@@ -120,7 +120,7 @@ export class ChunkingService {
    */
   chunkMultipleContents(
     contents: ScrapedContent[],
-    options?: Partial<ChunkingOptions>
+    options?: Partial<ChunkingOptions>,
   ): ChunkingResult[] {
     return contents.map((content) => this.chunkContent(content, options));
   }
@@ -180,10 +180,14 @@ export class ChunkingService {
     baseMetadata: DocumentMetadata,
     options: ChunkingOptions,
     startIndex: number,
-    heading?: string
+    heading?: string,
   ): Chunk[] {
     const chunks: Chunk[] = [];
-    const { chunkSize, chunkOverlap, separators } = options;
+    const {
+      chunkSize = 512,
+      chunkOverlap = 50,
+      separators = ["\n\n", "\n", ".", "!", "?", ";", ":"],
+    } = options;
 
     // Clean the text
     const cleanedText = this.cleanText(text);
@@ -339,7 +343,7 @@ export class ChunkingService {
       tokenLimit: number;
       tokenOverlap: number;
     },
-    heading?: string
+    heading?: string,
   ): Chunk[] {
     const { tokenLimit, tokenOverlap } = options;
     const chunks: Chunk[] = [];
@@ -354,7 +358,10 @@ export class ChunkingService {
       const wordTokens = this.estimateTokens(word);
 
       // If adding this word would exceed token limit, finalize current chunk
-      if (currentTokenCount + wordTokens > tokenLimit && currentChunk.length > 0) {
+      if (
+        currentTokenCount + wordTokens > tokenLimit &&
+        currentChunk.length > 0
+      ) {
         const chunkText = currentChunk.join(" ").trim();
         if (chunkText) {
           chunks.push({
@@ -377,7 +384,11 @@ export class ChunkingService {
         let overlapCount = 0;
 
         // Add words from end of previous chunk for overlap
-        for (let i = currentChunk.length - 1; i >= 0 && overlapCount < overlapTokens; i--) {
+        for (
+          let i = currentChunk.length - 1;
+          i >= 0 && overlapCount < overlapTokens;
+          i--
+        ) {
           const overlapWord = currentChunk[i];
           const wordTokenCount = this.estimateTokens(overlapWord);
           if (overlapCount + wordTokenCount <= overlapTokens) {
