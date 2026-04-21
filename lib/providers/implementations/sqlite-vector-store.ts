@@ -1,4 +1,6 @@
-import Database from 'better-sqlite3';
+import Database from "better-sqlite3";
+import fs from "fs";
+import path from "path";
 import {
   VectorStore,
   VectorDocument,
@@ -6,7 +8,7 @@ import {
   VectorSearchOptions,
   VectorStoreOptions,
   DocumentMetadata,
-} from '../../types';
+} from "../../types";
 
 interface DatabaseVector {
   id: string;
@@ -22,23 +24,22 @@ export class SQLiteVectorStore implements VectorStore {
   private dimension: number;
 
   constructor(config: any) {
-    const connectionString = config.connectionString || 'sqlite://./data/vector_store.db';
+    const connectionString =
+      config.connectionString || "sqlite://./data/vector_store.db";
     // Extract path from connection string or use default
-    let dbPath = './data/vector_store.db';
-    if (connectionString.startsWith('sqlite://')) {
-      dbPath = connectionString.substring('sqlite://'.length);
+    let dbPath = "./data/vector_store.db";
+    if (connectionString.startsWith("sqlite://")) {
+      dbPath = connectionString.substring("sqlite://".length);
     }
 
     // Ensure directory exists
-    const path = require('path');
-    const fs = require('fs');
     const dir = path.dirname(dbPath);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
 
     this.db = new Database(dbPath);
-    this.tableName = config.tableName || 'vectors';
+    this.tableName = config.tableName || "vectors";
     this.dimension = config.dimension || 1536;
 
     // Initialize database
@@ -58,10 +59,15 @@ export class SQLiteVectorStore implements VectorStore {
     `);
 
     // Create index on id for faster lookups
-    this.db.exec(`CREATE INDEX IF NOT EXISTS idx_${this.tableName}_id ON ${this.tableName}(id)`);
+    this.db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_id ON ${this.tableName}(id)`,
+    );
   }
 
-  async addDocuments(documents: VectorDocument[], options?: VectorStoreOptions): Promise<void> {
+  async addDocuments(
+    documents: VectorDocument[],
+    options?: VectorStoreOptions,
+  ): Promise<void> {
     const batchSize = options?.batchSize || 100;
     const insertStmt = this.db.prepare(`
       INSERT OR REPLACE INTO ${this.tableName} (id, content, metadata, embedding)
@@ -77,7 +83,7 @@ export class SQLiteVectorStore implements VectorStore {
             doc.id,
             doc.content,
             JSON.stringify(doc.metadata),
-            JSON.stringify(doc.embedding || [])
+            JSON.stringify(doc.embedding || []),
           );
         }
       });
@@ -85,7 +91,10 @@ export class SQLiteVectorStore implements VectorStore {
       try {
         transaction(batch);
       } catch (error) {
-        console.error(`Error adding documents batch ${i}-${i + batch.length}:`, error);
+        console.error(
+          `Error adding documents batch ${i}-${i + batch.length}:`,
+          error,
+        );
         throw error;
       }
     }
@@ -93,7 +102,7 @@ export class SQLiteVectorStore implements VectorStore {
 
   async similaritySearch(
     query: string | number[],
-    options?: VectorSearchOptions
+    options?: VectorSearchOptions,
   ): Promise<VectorSearchResult[]> {
     const k = options?.k || 5;
     const scoreThreshold = options?.scoreThreshold || 0;
@@ -103,9 +112,12 @@ export class SQLiteVectorStore implements VectorStore {
     // Convert query to vector if it's a string (for this demo, we'll assume it's already a vector)
     // In production, we'd call the embedding provider here
     let queryVector: number[];
-    if (typeof query === 'string') {
+    if (typeof query === "string") {
       // For simplicity, create a random vector - in real use, we'd embed the query
-      queryVector = Array.from({ length: this.dimension }, () => Math.random() * 2 - 1);
+      queryVector = Array.from(
+        { length: this.dimension },
+        () => Math.random() * 2 - 1,
+      );
     } else {
       queryVector = query;
     }
@@ -117,7 +129,9 @@ export class SQLiteVectorStore implements VectorStore {
     }
 
     // Get all vectors from database
-    const rows = this.db.prepare(`SELECT * FROM ${this.tableName}`).all() as DatabaseVector[];
+    const rows = this.db
+      .prepare(`SELECT * FROM ${this.tableName}`)
+      .all() as DatabaseVector[];
 
     const results: VectorSearchResult[] = [];
 
@@ -131,7 +145,11 @@ export class SQLiteVectorStore implements VectorStore {
         }
 
         // Calculate cosine similarity
-        const similarity = this.cosineSimilarity(queryVector, embedding, queryNorm);
+        const similarity = this.cosineSimilarity(
+          queryVector,
+          embedding,
+          queryNorm,
+        );
 
         if (similarity >= scoreThreshold) {
           const metadata = JSON.parse(row.metadata) as DocumentMetadata;
@@ -154,15 +172,13 @@ export class SQLiteVectorStore implements VectorStore {
     }
 
     // Sort by score descending and return top k
-    return results
-      .sort((a, b) => b.score - a.score)
-      .slice(0, k);
+    return results.sort((a, b) => b.score - a.score).slice(0, k);
   }
 
   async similaritySearchWithFilter(
     query: string | number[],
     filter: Record<string, any>,
-    options?: VectorSearchOptions
+    options?: VectorSearchOptions,
   ): Promise<VectorSearchResult[]> {
     // First get all results
     const allResults = await this.similaritySearch(query, {
@@ -171,32 +187,38 @@ export class SQLiteVectorStore implements VectorStore {
     });
 
     // Filter results based on metadata
-    return allResults.filter((result) => {
-      for (const [key, value] of Object.entries(filter)) {
-        const metadataValue = result.document.metadata[key];
+    return allResults
+      .filter((result) => {
+        for (const [key, value] of Object.entries(filter)) {
+          const metadataValue = result.document.metadata[key];
 
-        // Handle different types of comparisons
-        if (Array.isArray(value)) {
-          // Check if metadata value is in array
-          if (!value.includes(metadataValue)) {
+          // Handle different types of comparisons
+          if (Array.isArray(value)) {
+            // Check if metadata value is in array
+            if (!value.includes(metadataValue)) {
+              return false;
+            }
+          } else if (metadataValue !== value) {
             return false;
           }
-        } else if (metadataValue !== value) {
-          return false;
         }
-      }
-      return true;
-    }).slice(0, options?.k || 5);
+        return true;
+      })
+      .slice(0, options?.k || 5);
   }
 
   async deleteDocuments(ids: string[]): Promise<void> {
-    const placeholders = ids.map(() => '?').join(',');
-    const stmt = this.db.prepare(`DELETE FROM ${this.tableName} WHERE id IN (${placeholders})`);
+    const placeholders = ids.map(() => "?").join(",");
+    const stmt = this.db.prepare(
+      `DELETE FROM ${this.tableName} WHERE id IN (${placeholders})`,
+    );
     stmt.run(...ids);
   }
 
   async getDocumentCount(): Promise<number> {
-    const result = this.db.prepare(`SELECT COUNT(*) as count FROM ${this.tableName}`).get() as { count: number };
+    const result = this.db
+      .prepare(`SELECT COUNT(*) as count FROM ${this.tableName}`)
+      .get() as { count: number };
     return result.count;
   }
 
@@ -208,7 +230,7 @@ export class SQLiteVectorStore implements VectorStore {
   // Utility methods for vector operations
   private cosineSimilarity(a: number[], b: number[], aNorm?: number): number {
     if (a.length !== b.length) {
-      throw new Error('Vectors must have the same dimension');
+      throw new Error("Vectors must have the same dimension");
     }
 
     // Calculate dot product
@@ -238,7 +260,9 @@ export class SQLiteVectorStore implements VectorStore {
 
   // Additional utility methods
   async getDocument(id: string): Promise<VectorDocument | null> {
-    const row = this.db.prepare(`SELECT * FROM ${this.tableName} WHERE id = ?`).get(id) as DatabaseVector | undefined;
+    const row = this.db
+      .prepare(`SELECT * FROM ${this.tableName} WHERE id = ?`)
+      .get(id) as DatabaseVector | undefined;
 
     if (!row) {
       return null;
@@ -252,7 +276,10 @@ export class SQLiteVectorStore implements VectorStore {
     };
   }
 
-  async updateDocument(id: string, updates: Partial<VectorDocument>): Promise<void> {
+  async updateDocument(
+    id: string,
+    updates: Partial<VectorDocument>,
+  ): Promise<void> {
     const existing = await this.getDocument(id);
     if (!existing) {
       throw new Error(`Document ${id} not found`);
@@ -274,12 +301,17 @@ export class SQLiteVectorStore implements VectorStore {
       updatedDoc.content,
       JSON.stringify(updatedDoc.metadata),
       JSON.stringify(updatedDoc.embedding || []),
-      id
+      id,
     );
   }
 
-  async searchByMetadata(filter: Record<string, any>, limit: number = 100): Promise<VectorDocument[]> {
-    const rows = this.db.prepare(`SELECT * FROM ${this.tableName}`).all() as DatabaseVector[];
+  async searchByMetadata(
+    filter: Record<string, any>,
+    limit: number = 100,
+  ): Promise<VectorDocument[]> {
+    const rows = this.db
+      .prepare(`SELECT * FROM ${this.tableName}`)
+      .all() as DatabaseVector[];
     const results: VectorDocument[] = [];
 
     for (const row of rows) {
