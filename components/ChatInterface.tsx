@@ -27,6 +27,7 @@ interface ChatInterfaceProps {
   sessionId?: string;
   apiEndpoint?: string;
   streamingEnabled?: boolean;
+  isExpanded?: boolean;
 }
 
 const ChatInterface: React.FC<ChatInterfaceProps> = ({
@@ -36,6 +37,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   sessionId,
   apiEndpoint = "/api/chat",
   streamingEnabled = true,
+  isExpanded = false,
 }) => {
   // State
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
@@ -47,6 +49,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [currentSessionId, setCurrentSessionId] = useState(sessionId);
   const [isTyping, setIsTyping] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -96,7 +99,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       try {
         localStorage.setItem(
           `chesapeake_chat_messages_${currentSessionId}`,
-          JSON.stringify(messages.slice(-50)), // Keep last 50 messages
+          JSON.stringify(messages),
         );
       } catch (e) {
         console.error("Failed to save chat history:", e);
@@ -106,20 +109,22 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   // Scroll to bottom when messages change
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages, streamingContent]);
 
-  // Focus input on load
+  // Focus input when component mounts or when chat opens
   useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
+    if (inputRef.current && messages.length === 0) {
+      setTimeout(() => inputRef.current?.focus(), 300);
+    }
+  }, [messages.length]);
 
-  // Generate a message ID
   const generateMessageId = () => {
     return `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   };
 
-  // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
@@ -131,239 +136,229 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       timestamp: new Date(),
     };
 
-    // Add user message
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
-    setError(null);
     setIsLoading(true);
+    setError(null);
     setIsTyping(true);
     setStreamingContent("");
 
-    // Prepare request
-    const requestBody = {
-      message: userMessage.content,
-      conversationId: currentConversationId,
-      sessionId: currentSessionId,
-      userId,
-      options: {
-        temperature: 0.7,
-        includeSources: true,
-        maxTokens: 1000,
-        contextWindow: 10,
-      },
-      stream: streamingEnabled,
-    };
+    // Create new abort controller for this request
+    abortControllerRef.current = new AbortController();
 
-    try {
-      abortControllerRef.current = new AbortController();
-
-      if (streamingEnabled) {
-        await handleStreamingResponse(requestBody);
-      } else {
-        await handleNonStreamingResponse(requestBody);
-      }
-    } catch (err: any) {
-      if (err.name === "AbortError") {
-        console.log("Request aborted");
-      } else {
-        setError(err.message || "Failed to send message");
-        console.error("Chat error:", err);
-      }
-    } finally {
-      setIsLoading(false);
-      setIsTyping(false);
-      inputRef.current?.focus();
+    if (streamingEnabled) {
+      await handleStreamingResponse(userMessage.content);
+    } else {
+      await handleNonStreamingResponse(userMessage.content);
     }
+
+    setIsLoading(false);
+    setIsTyping(false);
+    abortControllerRef.current = null;
   };
 
-  // Handle streaming response
-  const handleStreamingResponse = async (requestBody: any) => {
-    const response = await fetch(apiEndpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-session-id": currentSessionId || "",
-      },
-      body: JSON.stringify(requestBody),
-      signal: abortControllerRef.current?.signal,
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    if (!response.body) {
-      throw new Error("Response body is null");
-    }
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let assistantMessage: ChatMessage | null = null;
-    let accumulatedContent = "";
-
+  const handleStreamingResponse = async (userMessage: string) => {
     try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+      const response = await fetch(apiEndpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-session-id": currentSessionId || "",
+        },
+        body: JSON.stringify({
+          message: userMessage,
+          conversationId: currentConversationId,
+          sessionId: currentSessionId,
+          options: {
+            temperature: 0.7,
+            includeSources: true,
+            maxTokens: 1000,
+            contextWindow: 4096,
+          },
+          stream: true,
+        }),
+        signal: abortControllerRef.current?.signal,
+      });
 
-        const chunk = decoder.decode(value);
-        const lines = chunk.split("\n").filter((line) => line.trim());
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.error || `Request failed with status ${response.status}`,
+        );
+      }
 
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            const data = line.substring(6);
-            if (data === "[DONE]") break;
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
 
-            try {
-              const parsed = JSON.parse(data);
+      if (!reader) {
+        throw new Error("No response body reader available");
+      }
 
-              switch (parsed.type) {
-                case "metadata":
+      let assistantMessage: ChatMessage | null = null;
+      let accumulatedContent = "";
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split("\n");
+
+          for (const line of lines) {
+            if (line.trim() === "") continue;
+
+            if (line.startsWith("data: ")) {
+              const data = line.slice(6);
+              if (data === "[DONE]") break;
+
+              try {
+                const parsed = JSON.parse(data);
+
+                if (parsed.type === "content") {
+                  accumulatedContent += parsed.content;
+                  setStreamingContent(accumulatedContent);
+
                   if (!assistantMessage) {
                     assistantMessage = {
                       id: generateMessageId(),
                       role: "assistant",
-                      content: "",
+                      content: accumulatedContent,
                       timestamp: new Date(),
                     };
-                    setMessages((prev) => [...prev, assistantMessage]);
-                    if (parsed.conversationId) {
-                      setCurrentConversationId(parsed.conversationId);
-                    }
                   }
-                  break;
-
-                case "chunk":
-                  accumulatedContent += parsed.content;
-                  setStreamingContent(accumulatedContent);
-                  break;
-
-                case "sources":
-                  // Sources handled separately
-                  break;
-
-                case "error":
-                  throw new Error(parsed.error);
+                }
+              } catch (e) {
+                console.error("Error parsing stream data:", e);
               }
-            } catch (e) {
-              console.error("Error parsing SSE data:", e);
             }
           }
         }
+      } finally {
+        reader.releaseLock();
       }
-    } finally {
-      reader.releaseLock();
-    }
 
-    // Finalize assistant message
-    if (assistantMessage && accumulatedContent) {
-      const finalMessage: ChatMessage = {
-        ...assistantMessage,
-        content: accumulatedContent,
+      if (assistantMessage) {
+        const finalMessage = {
+          ...assistantMessage,
+          content: accumulatedContent,
+        };
+        setMessages((prev) => [...prev, finalMessage]);
+        setStreamingContent("");
+      }
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        console.log("Request aborted");
+      } else {
+        console.error("Streaming error:", error);
+        setError(
+          error instanceof Error ? error.message : "An unknown error occurred",
+        );
+      }
+    }
+  };
+
+  const handleNonStreamingResponse = async (userMessage: string) => {
+    try {
+      const response = await fetch(apiEndpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-session-id": currentSessionId || "",
+        },
+        body: JSON.stringify({
+          message: userMessage,
+          conversationId: currentConversationId,
+          sessionId: currentSessionId,
+          options: {
+            temperature: 0.7,
+            includeSources: true,
+            maxTokens: 1000,
+            contextWindow: 4096,
+          },
+          stream: false,
+        }),
+        signal: abortControllerRef.current?.signal,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.error || `Request failed with status ${response.status}`,
+        );
+      }
+
+      const data = await response.json();
+
+      const assistantMessage: ChatMessage = {
+        id: generateMessageId(),
+        role: "assistant",
+        content: data.content || "",
+        timestamp: new Date(),
+        sources: data.sources,
+        suggestedFollowUps: data.suggestedFollowUps,
+        metadata: data.metadata,
       };
 
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === assistantMessage!.id ? finalMessage : msg,
-        ),
-      );
-      setStreamingContent("");
+      setMessages((prev) => [...prev, assistantMessage]);
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        console.log("Request aborted");
+      } else {
+        console.error("Non-streaming error:", error);
+        setError(
+          error instanceof Error ? error.message : "An unknown error occurred",
+        );
+      }
     }
   };
 
-  // Handle non-streaming response
-  const handleNonStreamingResponse = async (requestBody: any) => {
-    const response = await fetch(apiEndpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-session-id": currentSessionId || "",
-      },
-      body: JSON.stringify({ ...requestBody, stream: false }),
-      signal: abortControllerRef.current?.signal,
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(
-        errorData.message || `HTTP error! status: ${response.status}`,
-      );
-    }
-
-    const data = await response.json();
-
-    if (!data.success) {
-      throw new Error(data.error || "Request failed");
-    }
-
-    const assistantMessage: ChatMessage = {
-      id: generateMessageId(),
-      role: "assistant",
-      content: data.data.message,
-      timestamp: new Date(),
-      sources: data.data.sources,
-      suggestedFollowUps: data.data.suggestedFollowUps,
-      metadata: data.data.metadata,
-    };
-
-    setMessages((prev) => [...prev, assistantMessage]);
-
-    if (data.data.conversationId) {
-      setCurrentConversationId(data.data.conversationId);
-    }
-  };
-
-  // Handle follow-up suggestion click
   const handleFollowUpClick = (suggestion: string) => {
     setInput(suggestion);
-    inputRef.current?.focus();
+    setTimeout(() => inputRef.current?.focus(), 50);
   };
 
-  // Handle key press in textarea
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      handleSubmit(e);
+      handleSubmit(e as any);
     }
   };
 
-  // Clear conversation
   const handleClearConversation = () => {
-    if (confirm("Are you sure you want to clear the conversation?")) {
+    if (showClearConfirm) {
       setMessages([]);
-      setCurrentConversationId(undefined);
-      setError(null);
-
+      setShowClearConfirm(false);
       if (currentSessionId) {
         localStorage.removeItem(`chesapeake_chat_messages_${currentSessionId}`);
       }
+    } else {
+      setShowClearConfirm(true);
+      setTimeout(() => setShowClearConfirm(false), 3000);
     }
   };
 
-  // Cancel ongoing request
   const handleCancelRequest = () => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
-      abortControllerRef.current = null;
       setIsLoading(false);
       setIsTyping(false);
-      setStreamingContent("");
     }
   };
 
-  // Format timestamp
   const formatTimestamp = (date: Date) => {
-    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const hour = date.getHours().toString().padStart(2, "0");
+    const minute = date.getMinutes().toString().padStart(2, "0");
+    return `${hour}:${minute}`;
   };
 
-  // Render message content with formatting
   const renderMessageContent = (content: string) => {
-    // Simple markdown-like formatting
     const formatted = content
-      .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-      .replace(/\*(.*?)\*/g, "<em>$1</em>")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
       .replace(
-        /`(.*?)`/g,
+        /`([^`]+)`/g,
         '<code class="bg-gray-100 px-1 py-0.5 rounded text-sm">$1</code>',
       )
       .replace(/\n/g, "<br />");
@@ -371,81 +366,76 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     return { __html: formatted };
   };
 
-  return (
-    <div className="flex flex-col h-full bg-white rounded-xl shadow-lg overflow-hidden">
-      {/* Header */}
-      <div className="bg-blue-700 text-white px-6 py-4">
-        <div className="flex justify-between items-center">
-          <div>
-            <h2 className="text-xl font-bold">Chesapeake City Assistant</h2>
-            <p className="text-blue-100 text-sm">
-              Ask me anything about Chesapeake City services and information
-            </p>
-          </div>
-          <div className="flex items-center space-x-3">
-            <span className="text-sm bg-blue-600 px-3 py-1 rounded-full">
-              {messages.length} messages
-            </span>
-            <button
-              onClick={handleClearConversation}
-              className="text-sm bg-red-600 hover:bg-red-700 px-3 py-1 rounded-full transition-colors"
-              disabled={isLoading}
-            >
-              Clear Chat
-            </button>
-          </div>
-        </div>
-      </div>
+  const quickQuestions = [
+    "How do I apply for a building permit?",
+    "What are the trash pickup schedules?",
+    "How do I report a pothole?",
+  ];
 
-      {/* Chat container */}
+  return (
+    <div className="flex flex-col h-full bg-white overflow-hidden">
+      {/* Messages Area */}
       <div className="flex-1 overflow-hidden flex flex-col">
-        {/* Messages area */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-4">
           {messages.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="inline-block p-4 bg-blue-50 rounded-full mb-4">
-                <svg
-                  className="w-12 h-12 text-blue-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-                  />
-                </svg>
+            <div className="h-full flex flex-col items-center justify-center text-center p-4">
+              <div className="mb-6">
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-teal-100 rounded-full flex items-center justify-center mb-4 mx-auto">
+                  <svg
+                    className="w-8 h-8 text-[#0c5898]"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+                    />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-semibold text-gray-800 mb-2">
+                  Welcome to Chesapeake Assistant
+                </h3>
+                <p className="text-gray-600 max-w-sm mx-auto mb-6">
+                  I can help you with city services, permits, utilities, events,
+                  and more.
+                </p>
+
+                <div className="space-y-3 max-w-sm mx-auto">
+                  <h4 className="text-sm font-medium text-gray-700">
+                    Try asking:
+                  </h4>
+                  {quickQuestions.map((question, index) => (
+                    <button
+                      key={index}
+                      onClick={() => handleFollowUpClick(question)}
+                      className="w-full text-left p-3 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg transition-colors text-sm text-gray-700 hover:text-gray-900"
+                    >
+                      {question}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <h3 className="text-xl font-semibold text-gray-700 mb-2">
-                Welcome to Chesapeake Chat Assistant
-              </h3>
-              <p className="text-gray-500 max-w-md mx-auto">
-                I can help you with information about Chesapeake City services,
-                departments, events, and more. Try asking about permits,
-                utilities, city services, or local events.
-              </p>
             </div>
           ) : (
-            <>
+            <div className="space-y-4">
               {messages.map((message) => (
                 <div
                   key={message.id}
                   className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
                 >
                   <div
-                    className={`max-w-[80%] rounded-2xl px-5 py-3 ${
+                    className={`max-w-[85%] rounded-2xl px-4 py-3 ${
                       message.role === "user"
-                        ? "bg-blue-600 text-white rounded-br-none"
-                        : "bg-gray-100 text-gray-800 rounded-bl-none border border-gray-200"
+                        ? "bg-[#a21f4b] text-white rounded-br-none"
+                        : "bg-gray-50 text-gray-800 rounded-bl-none border border-gray-100"
                     }`}
                   >
-                    <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center justify-between mb-2">
                       <span className="text-xs font-medium opacity-80">
-                        {message.role === "user"
-                          ? "You"
-                          : "Chesapeake Assistant"}
+                        {message.role === "user" ? "You" : "Assistant"}
                       </span>
                       <span className="text-xs opacity-60">
                         {formatTimestamp(message.timestamp)}
@@ -462,20 +452,20 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                     {message.role === "assistant" &&
                       message.sources &&
                       message.sources.length > 0 && (
-                        <div className="mt-3 pt-3 border-t border-gray-300 border-opacity-30">
-                          <p className="text-xs font-medium mb-2 opacity-80">
+                        <div className="mt-3 pt-3 border-t border-gray-200">
+                          <p className="text-xs font-medium mb-2 text-gray-600">
                             Sources:
                           </p>
                           <div className="space-y-1">
                             {message.sources
-                              .slice(0, 3)
+                              .slice(0, 2)
                               .map((source, index) => (
                                 <a
                                   key={index}
                                   href={source.url}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="block text-xs hover:underline opacity-80 truncate"
+                                  className="block text-xs text-blue-600 hover:underline truncate"
                                 >
                                   {source.title || source.source}
                                 </a>
@@ -487,231 +477,138 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                     {message.role === "assistant" &&
                       message.suggestedFollowUps &&
                       message.suggestedFollowUps.length > 0 && (
-                        <div className="mt-3 pt-3 border-t border-gray-300 border-opacity-30">
-                          <p className="text-xs font-medium mb-2 opacity-80">
-                            Suggested follow-ups:
+                        <div className="mt-3 pt-3 border-t border-gray-200">
+                          <p className="text-xs font-medium mb-2 text-gray-600">
+                            Related questions:
                           </p>
                           <div className="flex flex-wrap gap-2">
-                            {message.suggestedFollowUps.map(
-                              (suggestion, index) => (
+                            {message.suggestedFollowUps
+                              .slice(0, 3)
+                              .map((suggestion, index) => (
                                 <button
                                   key={index}
                                   onClick={() =>
                                     handleFollowUpClick(suggestion)
                                   }
-                                  className="text-xs bg-white bg-opacity-20 hover:bg-opacity-30 px-3 py-1 rounded-full transition-colors"
+                                  className="text-xs bg-white border border-gray-300 hover:border-gray-400 text-gray-700 px-3 py-1 rounded-full transition-colors"
                                 >
                                   {suggestion}
                                 </button>
-                              ),
-                            )}
+                              ))}
                           </div>
                         </div>
                       )}
-
-                    {message.metadata && (
-                      <div className="mt-2 pt-2 border-t border-gray-300 border-opacity-20">
-                        <p className="text-xs opacity-60">
-                          {message.metadata.responseTime &&
-                            `Response: ${message.metadata.responseTime}ms`}
-                          {message.metadata.model &&
-                            ` • Model: ${message.metadata.model}`}
-                        </p>
-                      </div>
-                    )}
                   </div>
                 </div>
               ))}
 
-              {/* Streaming content */}
               {isTyping && streamingContent && (
                 <div className="flex justify-start">
-                  <div className="max-w-[80%] rounded-2xl rounded-bl-none bg-gray-100 text-gray-800 px-5 py-3 border border-gray-200">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-medium opacity-80">
-                        Chesapeake Assistant
+                  <div className="max-w-[85%] rounded-2xl rounded-bl-none bg-gray-50 border border-gray-100 px-4 py-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-medium text-gray-600">
+                        Assistant
                       </span>
-                      <span className="text-xs opacity-60">Typing...</span>
+                      <span className="text-xs text-gray-400">typing...</span>
                     </div>
                     <div className="prose prose-sm max-w-none">
                       {streamingContent}
-                      <span className="inline-block w-2 h-4 bg-blue-500 ml-1 animate-pulse"></span>
+                      <span className="inline-block w-2 h-4 ml-1 bg-gray-400 animate-pulse"></span>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Typing indicator */}
-              {isTyping && !streamingContent && (
-                <div className="flex justify-start">
-                  <div className="max-w-[80%] rounded-2xl rounded-bl-none bg-gray-100 text-gray-800 px-5 py-3 border border-gray-200">
-                    <div className="flex items-center space-x-2">
-                      <div className="flex space-x-1">
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                        <div
-                          className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                          style={{ animationDelay: "0.1s" }}
-                        ></div>
-                        <div
-                          className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                          style={{ animationDelay: "0.2s" }}
-                        ></div>
-                      </div>
-                      <span className="text-sm text-gray-600">Thinking...</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </>
+              <div ref={messagesEndRef} />
+            </div>
           )}
 
-          <div ref={messagesEndRef} />
+          {error && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-red-700">Error</span>
+                <button
+                  onClick={() => setError(null)}
+                  className="text-red-500 hover:text-red-700"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+              <p className="text-sm text-red-600 mt-1">{error}</p>
+            </div>
+          )}
         </div>
 
-        {/* Error display */}
-        {error && (
-          <div className="mx-6 mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <svg
-                  className="w-5 h-5 text-red-500 mr-2"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                <span className="text-red-700 font-medium">Error</span>
-              </div>
-              <button
-                onClick={() => setError(null)}
-                className="text-red-500 hover:text-red-700"
-              >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            </div>
-            <p className="text-red-600 text-sm mt-1">{error}</p>
-          </div>
-        )}
-
-        {/* Input area */}
-        <div className="border-t border-gray-200 p-6">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="flex space-x-4">
+        {/* Input Area - Always visible at bottom */}
+        <div className="border-t border-gray-200 bg-white p-4 flex-shrink-0">
+          <form onSubmit={handleSubmit}>
+            <div className="flex gap-3">
               <div className="flex-1 relative">
                 <textarea
                   ref={inputRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Ask about Chesapeake City services, departments, events, or information..."
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                  rows={3}
+                  placeholder="Ask about city services, permits, schedules, events..."
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
+                  rows={2}
                   disabled={isLoading}
+                  style={{ minHeight: "56px" }}
                 />
-                <div className="absolute bottom-3 right-3 text-xs text-gray-400">
-                  Shift+Enter for new line
+                <div className="absolute bottom-2 right-2 text-xs text-gray-400">
+                  {isLoading
+                    ? "Processing..."
+                    : "Enter to send, Shift+Enter for new line"}
                 </div>
               </div>
-
-              <div className="flex flex-col justify-end space-y-2">
+              <div className="flex flex-col gap-2">
                 <button
                   type="submit"
                   disabled={!input.trim() || isLoading}
-                  className={`px-6 py-3 rounded-lg font-medium transition-colors ${
+                  className={`px-5 py-2.5 rounded-lg font-medium transition-colors whitespace-nowrap ${
                     !input.trim() || isLoading
                       ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                      : "bg-blue-600 hover:bg-blue-700 text-white"
+                      : "bg-gradient-to-r from-[#0c5898] to-[#127a8e] hover:from-[#083a6b] hover:to-[#0c5898] text-white shadow-md"
                   }`}
                 >
-                  {isLoading ? "Sending..." : "Send"}
+                  {isLoading ? (
+                    <span className="flex items-center gap-2">
+                      <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
+                      <span
+                        className="w-2 h-2 bg-white rounded-full animate-pulse"
+                        style={{ animationDelay: "0.2s" }}
+                      ></span>
+                      <span
+                        className="w-2 h-2 bg-white rounded-full animate-pulse"
+                        style={{ animationDelay: "0.4s" }}
+                      ></span>
+                    </span>
+                  ) : (
+                    "Send"
+                  )}
                 </button>
 
                 {isLoading && (
                   <button
                     type="button"
                     onClick={handleCancelRequest}
-                    className="px-6 py-3 rounded-lg font-medium bg-red-500 hover:bg-red-600 text-white transition-colors"
+                    className="px-4 py-2.5 rounded-lg font-medium bg-red-500 hover:bg-red-600 text-white transition-colors whitespace-nowrap"
                   >
                     Cancel
                   </button>
                 )}
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() =>
-                  handleFollowUpClick("What are the trash pickup schedules?")
-                }
-                className="text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-full transition-colors"
-                disabled={isLoading}
-              >
-                Trash schedules
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  handleFollowUpClick("How do I apply for a building permit?")
-                }
-                className="text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-full transition-colors"
-                disabled={isLoading}
-              >
-                Building permits
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  handleFollowUpClick(
-                    "What city services are available online?",
-                  )
-                }
-                className="text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-full transition-colors"
-                disabled={isLoading}
-              >
-                Online services
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  handleFollowUpClick("How do I contact the police department?")
-                }
-                className="text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-full transition-colors"
-                disabled={isLoading}
-              >
-                Police contact
-              </button>
-            </div>
-
-            <div className="flex items-center justify-between text-xs text-gray-500">
-              <div>
-                {currentSessionId && (
-                  <span>Session: {currentSessionId.substring(0, 8)}...</span>
-                )}
-              </div>
-              <div className="flex items-center space-x-4">
-                <span>
-                  Streaming: {streamingEnabled ? "Enabled" : "Disabled"}
-                </span>
-                <span>Messages auto-saved locally</span>
               </div>
             </div>
           </form>
