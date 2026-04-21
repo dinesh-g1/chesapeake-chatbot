@@ -55,6 +55,25 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const hasLoadedFromStorageRef = useRef(false);
+  const localStorageVersion = "v1.0"; // Version to clear old test data
+
+  // Check and clear old localStorage data on mount
+  useEffect(() => {
+    const storedVersion = localStorage.getItem("chesapeake_chat_version");
+    if (storedVersion !== localStorageVersion) {
+      // Clear all old chat data when version changes
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith("chesapeake_chat_")) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach((key) => localStorage.removeItem(key));
+      localStorage.setItem("chesapeake_chat_version", localStorageVersion);
+    }
+  }, []);
 
   // Initialize session ID if not provided
   useEffect(() => {
@@ -74,24 +93,33 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   // Load conversation history from localStorage
   useEffect(() => {
-    if (currentSessionId) {
+    if (currentSessionId && !hasLoadedFromStorageRef.current) {
       try {
         const savedMessages = localStorage.getItem(
           `chesapeake_chat_messages_${currentSessionId}`,
         );
-        if (savedMessages && !initialMessages.length) {
+        if (
+          savedMessages &&
+          (!initialMessages || initialMessages.length === 0)
+        ) {
           const parsed = JSON.parse(savedMessages);
           const messagesWithDates = parsed.map((msg: any) => ({
             ...msg,
             timestamp: new Date(msg.timestamp),
           }));
           setMessages(messagesWithDates);
+          hasLoadedFromStorageRef.current = true;
         }
       } catch (e) {
         console.error("Failed to load chat history:", e);
       }
     }
-  }, [currentSessionId, initialMessages]);
+  }, [currentSessionId, initialMessages.length]); // Only depend on initialMessages.length, not the array reference
+
+  // Reset loaded flag when session changes
+  useEffect(() => {
+    hasLoadedFromStorageRef.current = false;
+  }, [currentSessionId]);
 
   // Save messages to localStorage
   useEffect(() => {
@@ -329,6 +357,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     if (showClearConfirm) {
       setMessages([]);
       setShowClearConfirm(false);
+      hasLoadedFromStorageRef.current = true; // Mark as loaded to prevent re-loading
       if (currentSessionId) {
         localStorage.removeItem(`chesapeake_chat_messages_${currentSessionId}`);
       }
@@ -347,9 +376,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   };
 
   const formatTimestamp = (date: Date) => {
-    const hour = date.getHours().toString().padStart(2, "0");
-    const minute = date.getMinutes().toString().padStart(2, "0");
-    return `${hour}:${minute}`;
+    let hours = date.getHours();
+    const minutes = date.getMinutes().toString().padStart(2, "0");
+    const ampm = hours >= 12 ? "PM" : "AM";
+    hours = hours % 12;
+    hours = hours || 12; // the hour '0' should be '12'
+    return `${hours}:${minutes} ${ampm}`;
   };
 
   const renderMessageContent = (content: string) => {
