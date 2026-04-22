@@ -573,8 +573,11 @@ Notes:
   `);
 }
 
-// Run the script
-if (require.main === module) {
+// Run the script (ES module equivalent of require.main === module)
+const isMainModule =
+  process.argv[1] &&
+  import.meta.url.endsWith(process.argv[1].replace(/\\/g, "/"));
+if (isMainModule) {
   main().catch((error) => {
     console.error("Fatal error:", error);
     process.exit(1);

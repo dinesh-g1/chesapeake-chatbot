@@ -28,13 +28,16 @@ if [[ "${RUN_DATA_INGESTION:-false}" == "true" ]]; then
 
     # Run ingestion script
     cd /app
+    SKIP_FLAG=""
+    if [[ "${INGESTION_SKIP_EMBEDDING}" == "true" ]]; then
+        SKIP_FLAG="--skip-embedding"
+    fi
     npm run ingest -- \
         --max-pages "${INGESTION_MAX_PAGES:-30}" \
         --max-depth "${INGESTION_MAX_DEPTH:-2}" \
         --chunk-size "${INGESTION_CHUNK_SIZE:-512}" \
         --chunk-overlap "${INGESTION_CHUNK_OVERLAP:-50}" \
-        --skip-embedding "${INGESTION_SKIP_EMBEDDING:-false}" \
-        --verbose "${INGESTION_VERBOSE:-false}" || {
+        ${SKIP_FLAG} --verbose "${INGESTION_VERBOSE:-false}" || {
         echo "WARNING: Data ingestion failed or partially succeeded. Continuing..."
     }
 

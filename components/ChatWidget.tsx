@@ -1,13 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import {
-  X,
-  MessageSquare,
-  ChevronRight,
-  Maximize2,
-  Minimize2,
-} from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { X, MessageSquare, Maximize2, Minimize2 } from "lucide-react";
 import ChatInterface from "./ChatInterface";
 
 interface ChatWidgetProps {
@@ -31,6 +25,16 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
   const [isExpanded, setIsExpanded] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [chatSize, setChatSize] = useState<{ w: number; h: number } | null>(
+    null,
+  );
+  const [isResizing, setIsResizing] = useState(false);
+  const resizeStart = useRef<{
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+  } | null>(null);
 
   // Detect mobile viewport
   useEffect(() => {
@@ -72,6 +76,46 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
     "How do I contact the police department?",
   ];
 
+  // Resize handlers
+  const handleResizeStart = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const currentW = chatSize?.w || 500;
+      const currentH = chatSize?.h || 600;
+      resizeStart.current = {
+        x: e.clientX,
+        y: e.clientY,
+        w: currentW,
+        h: currentH,
+      };
+      setIsResizing(true);
+    },
+    [chatSize],
+  );
+
+  useEffect(() => {
+    if (!isResizing) return;
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!resizeStart.current) return;
+      const dx = e.clientX - resizeStart.current.x;
+      const dy = e.clientY - resizeStart.current.y;
+      const newW = Math.max(320, resizeStart.current.w - dx);
+      const newH = Math.max(400, resizeStart.current.h - dy);
+      setChatSize({ w: newW, h: newH });
+    };
+    const handleMouseUp = () => {
+      setIsResizing(false);
+      resizeStart.current = null;
+    };
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isResizing]);
+
   // Calculate widget dimensions based on state
   const getWidgetDimensions = () => {
     if (isMobile) {
@@ -79,6 +123,15 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
         width: "calc(100vw - 1rem)",
         height: isExpanded ? "90vh" : "85vh",
         maxWidth: "calc(100vw - 1rem)",
+        maxHeight: "90vh",
+      };
+    }
+
+    if (chatSize) {
+      return {
+        width: `${chatSize.w}px`,
+        height: `${chatSize.h}px`,
+        maxWidth: "90vw",
         maxHeight: "90vh",
       };
     }
@@ -139,15 +192,6 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
         </button>
       </div>
 
-      {/* Overlay when chat is open */}
-      {isOpen && (
-        <div
-          className="fixed inset-0 z-[9997] bg-black bg-opacity-30 backdrop-blur-sm transition-opacity duration-300"
-          onClick={handleToggle}
-          aria-hidden="true"
-        />
-      )}
-
       {/* Chat Widget Container - Bottom right positioning */}
       {isOpen && (
         <div
@@ -165,15 +209,35 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
         >
           <div
             className={`
-            bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden
+            bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden relative
             transition-all duration-300 ease-in-out flex flex-col h-full w-full
-            ${isAnimating ? "animate-slide-up" : ""}
+            ${isAnimating && !isResizing ? "animate-slide-up" : ""}
           `}
             style={{
               boxShadow:
                 "0 20px 60px rgba(0, 0, 0, 0.15), 0 5px 20px rgba(0, 0, 0, 0.1)",
             }}
           >
+            {/* Resize Handle */}
+            <div
+              onMouseDown={handleResizeStart}
+              className="absolute top-0 left-0 z-50 cursor-nwse-resize"
+              style={{ width: 20, height: 20 }}
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 12 12"
+                className="absolute top-1 left-1 text-gray-400"
+              >
+                <path
+                  d="M0 12V0h12"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                />
+              </svg>
+            </div>
             {/* Widget Header */}
             <div className="bg-gradient-to-r from-[#0c5898] to-[#127a8e] text-white px-4 py-3 border-b border-[#083a6b] flex-shrink-0">
               <div className="flex justify-between items-center">

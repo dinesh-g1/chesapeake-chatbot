@@ -47,6 +47,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [currentSessionId, setCurrentSessionId] = useState(sessionId);
   const [isTyping, setIsTyping] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
+  const [inputCollapsed, setInputCollapsed] = useState(false);
 
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -69,26 +70,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     }
   }, [currentSessionId]);
 
-  // Load conversation history from localStorage
-  useEffect(() => {
-    if (currentSessionId) {
-      try {
-        const savedMessages = localStorage.getItem(
-          `chesapeake_chat_messages_${currentSessionId}`,
-        );
-        if (savedMessages && !initialMessages.length) {
-          const parsed = JSON.parse(savedMessages);
-          const messagesWithDates = parsed.map((msg: any) => ({
-            ...msg,
-            timestamp: new Date(msg.timestamp),
-          }));
-          setMessages(messagesWithDates);
-        }
-      } catch (e) {
-        console.error("Failed to load chat history:", e);
-      }
-    }
-  }, [currentSessionId, initialMessages]);
+  // No longer loading old messages from localStorage - start fresh each session
 
   // Save messages to localStorage
   useEffect(() => {
@@ -138,6 +120,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     setIsLoading(true);
     setIsTyping(true);
     setStreamingContent("");
+    setInputCollapsed(true);
 
     // Prepare request
     const requestBody = {
@@ -169,10 +152,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         setError(err.message || "Failed to send message");
         console.error("Chat error:", err);
       }
+      setInputCollapsed(false);
     } finally {
       setIsLoading(false);
       setIsTyping(false);
-      inputRef.current?.focus();
     }
   };
 
@@ -349,6 +332,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       setIsLoading(false);
       setIsTyping(false);
       setStreamingContent("");
+      setInputCollapsed(false);
+      setTimeout(() => inputRef.current?.focus(), 100);
     }
   };
 
@@ -359,14 +344,66 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   // Render message content with formatting
   const renderMessageContent = (content: string) => {
-    // Simple markdown-like formatting
-    const formatted = content
+    // Escape HTML first to prevent XSS
+    let formatted = content
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+
+    // Convert markdown links [text](url) to HTML links (before bold, to avoid ** clashes)
+    formatted = formatted.replace(
+      /\[([^\]]+)\]\(([^)]+)\)/g,
+      '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline hover:text-blue-800">$1</a>',
+    );
+
+    // Convert bare URLs to clickable links
+    formatted = formatted.replace(
+      /(https?:\/\/[^\s<]+)/g,
+      '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline hover:text-blue-800">$1</a>',
+    );
+
+    // Enhanced markdown-like formatting
+    formatted = formatted
+      // Bold
       .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-      .replace(/\*(.*?)\*/g, "<em>$1</em>")
+      // Italic (only when surrounded by word boundaries to avoid conflicting with bullets)
+      .replace(/(?<!\*)\*(?!\*)(.*?)(?<!\*)\*(?!\*)/g, "<em>$1</em>")
+      // Inline code
       .replace(
         /`(.*?)`/g,
-        '<code class="bg-gray-100 px-1 py-0.5 rounded text-sm">$1</code>',
+        '<code class="bg-gray-100 px-1 py-0.5 rounded text-sm font-mono">$1</code>',
       )
+      // ### Headings
+      .replace(
+        /^#{3}\s+(.*)$/gm,
+        '<div class="text-blue-800 font-bold text-base mt-4 mb-2">$1</div>',
+      )
+      // ## Headings
+      .replace(
+        /^#{2}\s+(.*)$/gm,
+        '<div class="text-blue-800 font-bold text-lg mt-4 mb-2">$1</div>',
+      )
+      // # Headings
+      .replace(
+        /^#\s+(.*)$/gm,
+        '<div class="text-blue-800 font-bold text-xl mt-4 mb-2">$1</div>',
+      )
+      // Numbered list items
+      .replace(
+        /^(\d+)\.\s+(.*)$/gm,
+        '<div class="flex gap-2 ml-2"><span class="text-blue-600 font-semibold min-w-[1.5rem]">$1.</span><span>$2</span></div>',
+      )
+      // Bullet list items (only lines starting with "- ")
+      .replace(
+        /^-\s+(.*)$/gm,
+        '<div class="flex gap-2 ml-2"><span class="text-blue-500">•</span><span>$1</span></div>',
+      )
+      // Section headers like **MAIN ANSWER:** or **ACTIONABLE STEPS**
+      .replace(
+        /^(\*\*[A-Z][A-Z\s]+:\*\*)\s*/gm,
+        '<div class="text-blue-700 font-bold text-sm mt-3 mb-1">$1</div>',
+      )
+      // Newlines to br
       .replace(/\n/g, "<br />");
 
     return { __html: formatted };
@@ -374,61 +411,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   return (
     <div className="flex flex-col h-full bg-white rounded-xl shadow-lg overflow-hidden">
-      {/* Header */}
-      <div className="bg-blue-700 text-white px-6 py-4">
-        <div className="flex justify-between items-center">
-          <div>
-            <h2 className="text-xl font-bold">Chesapeake City Assistant</h2>
-            <p className="text-blue-100 text-sm">
-              Ask me anything about Chesapeake City services and information
-            </p>
-          </div>
-          <div className="flex items-center space-x-3">
-            <span className="text-sm bg-blue-600 px-3 py-1 rounded-full">
-              {messages.length} messages
-            </span>
-            <button
-              onClick={handleClearConversation}
-              className="text-sm bg-red-600 hover:bg-red-700 px-3 py-1 rounded-full transition-colors"
-              disabled={isLoading}
-            >
-              Clear Chat
-            </button>
-          </div>
-        </div>
-      </div>
-
       {/* Chat container */}
       <div className="flex-1 overflow-hidden flex flex-col">
         {/* Messages area */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {messages.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="inline-block p-4 bg-blue-50 rounded-full mb-4">
-                <svg
-                  className="w-12 h-12 text-blue-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-                  />
-                </svg>
-              </div>
-              <h3 className="text-xl font-semibold text-gray-700 mb-2">
-                Welcome to Chesapeake Chat Assistant
-              </h3>
-              <p className="text-gray-500 max-w-md mx-auto">
-                I can help you with information about Chesapeake City services,
-                departments, events, and more. Try asking about permits,
-                utilities, city services, or local events.
-              </p>
-            </div>
-          ) : (
+          {messages.length > 0 && (
             <>
               {messages.map((message) => (
                 <div
@@ -509,17 +496,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                           </div>
                         </div>
                       )}
-
-                    {message.metadata && (
-                      <div className="mt-2 pt-2 border-t border-gray-300 border-opacity-20">
-                        <p className="text-xs opacity-60">
-                          {message.metadata.responseTime &&
-                            `Response: ${message.metadata.responseTime}ms`}
-                          {message.metadata.model &&
-                            ` • Model: ${message.metadata.model}`}
-                        </p>
-                      </div>
-                    )}
                   </div>
                 </div>
               ))}
@@ -534,10 +510,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                       </span>
                       <span className="text-xs opacity-60">Typing...</span>
                     </div>
-                    <div className="prose prose-sm max-w-none">
-                      {streamingContent}
-                      <span className="inline-block w-2 h-4 bg-blue-500 ml-1 animate-pulse"></span>
-                    </div>
+                    <div
+                      className="prose prose-sm max-w-none"
+                      dangerouslySetInnerHTML={renderMessageContent(
+                        streamingContent,
+                      )}
+                    />
+                    <span className="inline-block w-2 h-4 bg-blue-500 ml-1 animate-pulse" />
                   </div>
                 </div>
               )}
@@ -612,111 +591,136 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           </div>
         )}
 
-        {/* Input area */}
-        <div className="border-t border-gray-200 p-6">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="flex space-x-4">
-              <div className="flex-1 relative">
-                <textarea
-                  ref={inputRef}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Ask about Chesapeake City services, departments, events, or information..."
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                  rows={3}
-                  disabled={isLoading}
+        {/* Input area - collapsible when responding */}
+        {inputCollapsed ? (
+          <div
+            onClick={() => {
+              setInputCollapsed(false);
+              setTimeout(() => inputRef.current?.focus(), 100);
+            }}
+            className="border-t border-gray-200 px-6 py-3 cursor-pointer hover:bg-gray-50 transition-colors"
+          >
+            <div className="flex items-center gap-3 text-gray-400">
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
                 />
-                <div className="absolute bottom-3 right-3 text-xs text-gray-400">
-                  Shift+Enter for new line
+              </svg>
+              <span className="text-sm">Click to type your message...</span>
+            </div>
+          </div>
+        ) : (
+          <div className="border-t border-gray-200 p-6">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="flex items-stretch gap-3">
+                <div className="flex-1 relative">
+                  <textarea
+                    ref={inputRef}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Ask about Chesapeake City services, departments, events, or information..."
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    rows={3}
+                    disabled={isLoading}
+                  />
+                  <div className="absolute bottom-3 right-3 text-xs text-gray-400">
+                    Shift+Enter for new line
+                  </div>
+                </div>
+
+                <div className="flex flex-col justify-end gap-2">
+                  <button
+                    type="submit"
+                    disabled={!input.trim() || isLoading}
+                    className={`px-6 rounded-lg font-medium transition-colors self-stretch ${
+                      !input.trim() || isLoading
+                        ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                        : "bg-blue-600 hover:bg-blue-700 text-white"
+                    }`}
+                  >
+                    {isLoading ? "Sending..." : "Send"}
+                  </button>
+
+                  {isLoading && (
+                    <button
+                      type="button"
+                      onClick={handleCancelRequest}
+                      className="px-6 py-2 rounded-lg font-medium bg-red-500 hover:bg-red-600 text-white text-sm transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  )}
                 </div>
               </div>
 
-              <div className="flex flex-col justify-end space-y-2">
+              <div className="flex flex-wrap gap-2">
                 <button
-                  type="submit"
-                  disabled={!input.trim() || isLoading}
-                  className={`px-6 py-3 rounded-lg font-medium transition-colors ${
-                    !input.trim() || isLoading
-                      ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                      : "bg-blue-600 hover:bg-blue-700 text-white"
-                  }`}
+                  type="button"
+                  onClick={() =>
+                    handleFollowUpClick("What are the trash pickup schedules?")
+                  }
+                  className="text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-full transition-colors"
+                  disabled={isLoading}
                 >
-                  {isLoading ? "Sending..." : "Send"}
+                  Trash schedules
                 </button>
-
-                {isLoading && (
-                  <button
-                    type="button"
-                    onClick={handleCancelRequest}
-                    className="px-6 py-3 rounded-lg font-medium bg-red-500 hover:bg-red-600 text-white transition-colors"
-                  >
-                    Cancel
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleFollowUpClick("How do I apply for a building permit?")
+                  }
+                  className="text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-full transition-colors"
+                  disabled={isLoading}
+                >
+                  Building permits
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleFollowUpClick(
+                      "What city services are available online?",
+                    )
+                  }
+                  className="text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-full transition-colors"
+                  disabled={isLoading}
+                >
+                  Online services
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleFollowUpClick(
+                      "How do I contact the police department?",
+                    )
+                  }
+                  className="text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-full transition-colors"
+                  disabled={isLoading}
+                >
+                  Police contact
+                </button>
               </div>
-            </div>
 
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() =>
-                  handleFollowUpClick("What are the trash pickup schedules?")
-                }
-                className="text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-full transition-colors"
-                disabled={isLoading}
-              >
-                Trash schedules
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  handleFollowUpClick("How do I apply for a building permit?")
-                }
-                className="text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-full transition-colors"
-                disabled={isLoading}
-              >
-                Building permits
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  handleFollowUpClick(
-                    "What city services are available online?",
-                  )
-                }
-                className="text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-full transition-colors"
-                disabled={isLoading}
-              >
-                Online services
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  handleFollowUpClick("How do I contact the police department?")
-                }
-                className="text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-full transition-colors"
-                disabled={isLoading}
-              >
-                Police contact
-              </button>
-            </div>
-
-            <div className="flex items-center justify-between text-xs text-gray-500">
-              <div>
-                {currentSessionId && (
-                  <span>Session: {currentSessionId.substring(0, 8)}...</span>
-                )}
+              <div className="flex justify-end">
+                <button
+                  onClick={handleClearConversation}
+                  className="text-xs font-medium text-gray-500 border border-gray-300 hover:border-red-400 hover:text-red-500 rounded-md px-3 py-1.5 transition-colors"
+                  disabled={isLoading}
+                >
+                  Clear conversation
+                </button>
               </div>
-              <div className="flex items-center space-x-4">
-                <span>
-                  Streaming: {streamingEnabled ? "Enabled" : "Disabled"}
-                </span>
-                <span>Messages auto-saved locally</span>
-              </div>
-            </div>
-          </form>
-        </div>
+            </form>
+          </div>
+        )}
       </div>
     </div>
   );

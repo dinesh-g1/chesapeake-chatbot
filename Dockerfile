@@ -17,8 +17,9 @@ WORKDIR /app
 COPY package*.json ./
 COPY tsconfig.json ./
 
-# Install dependencies
-RUN npm ci --only=production --ignore-scripts
+# Install ALL dependencies (devDependencies needed for build)
+# Postinstall scripts needed for native binaries (lightningcss, etc.)
+RUN npm ci
 
 # Copy source code
 COPY . .
@@ -34,6 +35,8 @@ FROM node:20-alpine AS runner
 
 # Install runtime dependencies
 RUN apk add --no-cache \
+    bash \
+    curl \
     sqlite \
     sqlite-libs \
     dumb-init
@@ -78,8 +81,8 @@ ENV HOSTNAME=0.0.0.0
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD node -e "fetch('http://localhost:3000/api/chat', {method: 'GET'}).then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"
 
-# Use dumb-init as entrypoint
+# Use dumb-init as entrypoint for proper signal handling
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 
-# Start the application
-CMD ["npm", "start"]
+# Run the entrypoint script which handles setup (ingestion) then starts the app
+CMD ["/app/docker-entrypoint.sh"]
