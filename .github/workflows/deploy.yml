@@ -258,7 +258,7 @@ jobs:
                 echo "SSL certificates already exist."
             fi
 
-            # Generate DH parameters for nginx if they don't exist
+            # Generate DH parameters for nginx if they do not exist
             echo "Checking for DH parameters..."
             if [ ! -f "nginx/ssl/dhparam.pem" ]; then
                 echo "DH parameters not found. Generating 2048-bit DH params (this may take a minute)..."
