@@ -115,6 +115,8 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/ssl:/etc/nginx/ssl:ro
       - ./nginx/logs:/var/log/nginx
+      - ./nginx/letsencrypt:/var/www/letsencrypt
+      - ./nginx/letsencrypt-etc:/etc/letsencrypt
     depends_on:
       - chatbot
     networks:
