@@ -81,7 +81,6 @@ jobs:
         with:
           key: ${{ secrets.VPS_SSH_KEY }}
           known_hosts: ${{ secrets.VPS_KNOWN_HOSTS }}
-          if_skip_keyscan: true
 
       # ── 3. Build the .env file from secrets ───────────────────────────────
       - name: 📝 Generate .env file
@@ -210,6 +209,17 @@ jobs:
               --profile production \
               down --volumes --remove-orphans 2>/dev/null || true
 
+            # Remove old PostgreSQL and Redis containers if they exist
+            echo "Removing old PostgreSQL and Redis containers..."
+            docker stop chatbot-postgres 2>/dev/null || true
+            docker rm -f chatbot-postgres 2>/dev/null || true
+            docker stop chatbot-redis 2>/dev/null || true
+            docker rm -f chatbot-redis 2>/dev/null || true
+
+            # Remove old PostgreSQL and Redis volumes if they exist
+            docker volume rm -f chesapeake-chatbot_postgres_data 2>/dev/null || true
+            docker volume rm -f chesapeake-chatbot_redis_data 2>/dev/null || true
+
             # Remove the specific problematic volume if it exists
             docker volume rm -f chesapeake-chatbot_chatbot_data 2>/dev/null || true
 
@@ -217,7 +227,37 @@ jobs:
             echo "Recreating volumes..."
             docker volume create chesapeake-chatbot_chatbot_data 2>/dev/null || true
 
-            # Pull latest images (for nginx, postgres, etc.)
+            # Generate self-signed SSL certificates if they don't exist
+            echo "Checking for SSL certificates..."
+            if [ ! -f "nginx/ssl/fullchain.pem" ] || [ ! -f "nginx/ssl/privkey.pem" ]; then
+                echo "SSL certificates not found. Generating self-signed certificates..."
+
+                # Extract domain from nginx config
+                DOMAIN=$(grep -o "server_name [^ ;]*" nginx/nginx.conf | head -1 | awk '{print $2}' | sed 's/_;//' | sed 's/_//')
+                if [ -z "$DOMAIN" ] || [ "$DOMAIN" = "_" ]; then
+                    DOMAIN="localhost"
+                fi
+                echo "Using domain: $DOMAIN"
+
+                # Create ssl directory if it doesn't exist
+                mkdir -p nginx/ssl
+
+                # Generate self-signed certificate
+                openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+                  -keyout nginx/ssl/privkey.pem \
+                  -out nginx/ssl/fullchain.pem \
+                  -subj "/C=US/ST=Virginia/L=Chesapeake/O=Chesapeake City/CN=$DOMAIN" \
+                  2>/dev/null || true
+
+                # Create chain.pem (same as fullchain for self-signed)
+                cp nginx/ssl/fullchain.pem nginx/ssl/chain.pem 2>/dev/null || true
+
+                echo "Self-signed SSL certificates generated for $DOMAIN."
+            else
+                echo "SSL certificates already exist."
+            fi
+
+            # Pull latest images (for nginx and other services)
             docker compose \
               -f docker-compose.yml \
               --profile production \

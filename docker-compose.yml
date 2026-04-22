@@ -163,60 +163,6 @@ services:
       - ollama
       - production
 
-  # PostgreSQL with pgvector (Optional - for production vector storage)
-  postgres:
-    image: ankane/pgvector
-    container_name: chatbot-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-chesapeake_chatbot}
-      POSTGRES_USER: ${POSTGRES_USER:-chatbot_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme123}
-      POSTGRES_INITDB_ARGS: ${POSTGRES_INITDB_ARGS:---encoding=UTF8}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    networks:
-      - chatbot_network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-chatbot_user}"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-    profiles:
-      - production
-      - postgres
-
-  # Redis for caching (Optional - for production session storage)
-  redis:
-    image: redis:alpine
-    container_name: chatbot-redis
-    restart: unless-stopped
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-changeme123}
-    volumes:
-      - redis_data:/data
-    networks:
-      - chatbot_network
-    healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-    profiles:
-      - production
-      - redis
-
 # Networks
 networks:
   chatbot_network:
@@ -229,14 +175,6 @@ networks:
 # Volumes
 volumes:
   chatbot_data:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ./data
-  postgres_data:
-    driver: local
-  redis_data:
-    driver: local
+
   ollama_data:
     driver: local
