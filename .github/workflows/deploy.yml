@@ -232,9 +232,9 @@ jobs:
             if [ ! -f "nginx/ssl/fullchain.pem" ] || [ ! -f "nginx/ssl/privkey.pem" ]; then
                 echo "SSL certificates not found. Generating self-signed certificates..."
 
-                # Extract domain from nginx config
-                DOMAIN=$(grep -o "server_name [^ ;]*" nginx/nginx.conf | head -1 | awk '{print $2}' | sed 's/_;//' | sed 's/_//')
-                if [ -z "$DOMAIN" ] || [ "$DOMAIN" = "_" ]; then
+                # Extract domain from nginx config (use HTTPS server block - last occurrence)
+                DOMAIN=$(grep "server_name" nginx/nginx.conf | tail -1 | awk '{print $2}' | sed 's/;//')
+                if [ -z "$DOMAIN" ] || [ "$DOMAIN" = "_" ] || [ "$DOMAIN" = "__DOMAIN_NAME__" ]; then
                     DOMAIN="localhost"
                 fi
                 echo "Using domain: $DOMAIN"
@@ -246,8 +246,7 @@ jobs:
                 openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
                   -keyout nginx/ssl/privkey.pem \
                   -out nginx/ssl/fullchain.pem \
-                  -subj "/C=US/ST=Virginia/L=Chesapeake/O=Chesapeake City/CN=$DOMAIN" \
-                  2>/dev/null || true
+                  -subj "/C=US/ST=Virginia/L=Chesapeake/O=Chesapeake City/CN=$DOMAIN"
 
                 # Create chain.pem (same as fullchain for self-signed)
                 cp nginx/ssl/fullchain.pem nginx/ssl/chain.pem 2>/dev/null || true
