@@ -13,8 +13,8 @@ export class QwenEmbeddingProvider implements EmbeddingProvider {
 
   constructor(config: any) {
     this.baseUrl = config.baseUrl || "http://localhost:11434";
-    this.model = config.model || "qwen2.5:1.8b";
-    this.dimension = config.dimension || 2048; // Qwen2.5-1.8B has 2048 dimensions
+    this.model = config.model || "qwen2.5:1.5b";
+    this.dimension = config.dimension || 2048; // Qwen2.5-1.5B has 2048 dimensions
 
     // Note: No API key needed for local Ollama
     this.defaultOptions = {
@@ -53,19 +53,23 @@ export class QwenEmbeddingProvider implements EmbeddingProvider {
         const data = response.data;
 
         if (!data.embedding || !Array.isArray(data.embedding)) {
-          throw new Error(`Invalid response format from Ollama embeddings API: ${JSON.stringify(data)}`);
+          throw new Error(
+            `Invalid response format from Ollama embeddings API: ${JSON.stringify(data)}`,
+          );
         }
 
         allEmbeddings.push(data.embedding);
 
         // Validate embedding dimension
         if (data.embedding.length !== this.dimension) {
-          console.warn(`Embedding dimension mismatch: expected ${this.dimension}, got ${data.embedding.length}. This may affect vector search accuracy.`);
+          console.warn(
+            `Embedding dimension mismatch: expected ${this.dimension}, got ${data.embedding.length}. This may affect vector search accuracy.`,
+          );
         }
 
         // Add small delay between requests to avoid overwhelming the local server
         if (i < texts.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise((resolve) => setTimeout(resolve, 100));
         }
       } catch (error: any) {
         if (error.response) {
@@ -73,7 +77,10 @@ export class QwenEmbeddingProvider implements EmbeddingProvider {
             `Qwen embeddings API error: ${error.response.status} - ${JSON.stringify(error.response.data)}`,
           );
         } else if (error.request) {
-          throw new Error("Qwen embeddings API request failed - no response received. Make sure Ollama is running on " + this.baseUrl);
+          throw new Error(
+            "Qwen embeddings API request failed - no response received. Make sure Ollama is running on " +
+              this.baseUrl,
+          );
         } else {
           throw new Error(`Qwen embeddings API error: ${error.message}`);
         }
@@ -82,7 +89,9 @@ export class QwenEmbeddingProvider implements EmbeddingProvider {
 
     // Validate that we got the right number of embeddings
     if (allEmbeddings.length !== texts.length) {
-      throw new Error(`Expected ${texts.length} embeddings but got ${allEmbeddings.length}`);
+      throw new Error(
+        `Expected ${texts.length} embeddings but got ${allEmbeddings.length}`,
+      );
     }
 
     return {

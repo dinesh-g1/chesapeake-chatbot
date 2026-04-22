@@ -225,7 +225,7 @@ Since DeepSeek doesn't offer a dedicated embedding model, switching to Qwen embe
 
 #### **Recommended Models**
 - **Qwen/Qwen2.5-7B-Instruct** (4096 dimensions, 32K context) - Best for general RAG tasks
-- **Qwen/Qwen2.5-1.8B-Instruct** (2048 dimensions) - Lightweight deployment
+- **Qwen/Qwen2.5-1.5B-Instruct** (2048 dimensions) - Lightweight deployment
 - **Qwen/Qwen2.5-Coder-7B** (4096 dimensions) - Technical/government content
 
 #### **Implementation Steps**
@@ -402,7 +402,7 @@ For local embeddings (no API costs), follow these steps:
 
 2. **Pull Qwen model**
    ```bash
-   ollama pull qwen2.5:1.8b
+   ollama pull qwen2.5:1.5b
    # Alternative: qwen2.5:7b for better quality (requires more RAM)
    ```
 
@@ -416,7 +416,7 @@ For local embeddings (no API costs), follow these steps:
    ```bash
    # In .env.local or docker-compose.override.yml
    EMBEDDING_PROVIDER=qwen
-   EMBEDDING_MODEL=qwen2.5:1.8b
+   EMBEDDING_MODEL=qwen2.5:1.5b
    EMBEDDING_BASE_URL=http://localhost:11434
    EMBEDDING_API_KEY=""  # No API key needed for local Ollama
    ```
@@ -429,11 +429,11 @@ For local embeddings (no API costs), follow these steps:
    # Test embeddings
    curl http://localhost:11434/api/embeddings \
      -H "Content-Type: application/json" \
-     -d '{"model": "qwen2.5:1.8b", "prompt": "test embedding"}'
+     -d '{"model": "qwen2.5:1.5b", "prompt": "test embedding"}'
    ```
 
 6. **Update vector store dimension**
-   Since Qwen2.5-1.8B uses 2048-dimensional embeddings (vs DeepSeek's 1536), you need to:
+   Since Qwen2.5-1.5B uses 2048-dimensional embeddings (vs DeepSeek's 1536), you need to:
    - Clear existing vector store: `rm -rf data/vector_store.db`
    - Re-run ingestion: `npm run ingest`
 
@@ -663,7 +663,7 @@ For local testing with Qwen embeddings:
 
 2. **Pull Qwen model**:
    ```bash
-   ollama pull qwen2.5:1.8b
+   ollama pull qwen2.5:1.5b
    ```
 
 3. **Configure environment**:

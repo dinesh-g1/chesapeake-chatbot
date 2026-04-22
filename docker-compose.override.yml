@@ -27,7 +27,7 @@ services:
 
       # Development Embeddings Configuration (Qwen via Ollama)
       EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-qwen}
-      EMBEDDING_MODEL: qwen2.5:1.8b
+      EMBEDDING_MODEL: qwen2.5:1.5b
       EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
       EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-http://ollama:11434}
       EMBEDDING_DIMENSION: 2048

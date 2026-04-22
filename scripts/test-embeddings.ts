@@ -29,7 +29,7 @@ const testTexts = [
   "What are the trash pickup days in my area?",
   "Where can I find information about building permits?",
   "How do I contact the city utilities department?",
-  "What recreational facilities are available in Chesapeake City?"
+  "What recreational facilities are available in Chesapeake City?",
 ];
 
 const testConfigs: Record<string, TestConfig> = {
@@ -37,7 +37,7 @@ const testConfigs: Record<string, TestConfig> = {
     provider: "qwen",
     config: {
       baseUrl: process.env.EMBEDDING_BASE_URL || "http://localhost:11434",
-      model: process.env.EMBEDDING_MODEL || "qwen2.5:1.8b",
+      model: process.env.EMBEDDING_MODEL || "qwen2.5:1.5b",
       apiKey: "",
       dimension: 2048,
       batchSize: 1,
@@ -75,7 +75,7 @@ async function testProvider(config: TestConfig): Promise<boolean> {
   console.log(`\n🧪 Testing ${config.description}`);
   console.log(`  Model: ${config.config.model}`);
   console.log(`  Expected dimension: ${config.expectedDimension}`);
-  console.log(`  Base URL: ${config.config.baseUrl || 'N/A'}`);
+  console.log(`  Base URL: ${config.config.baseUrl || "N/A"}`);
 
   let provider;
   try {
@@ -118,7 +118,9 @@ async function testProvider(config: TestConfig): Promise<boolean> {
 
     // Validate single embedding
     if (!singleResult.embeddings || singleResult.embeddings.length !== 1) {
-      console.log(`  ❌ Invalid response: expected 1 embedding, got ${singleResult.embeddings?.length || 0}`);
+      console.log(
+        `  ❌ Invalid response: expected 1 embedding, got ${singleResult.embeddings?.length || 0}`,
+      );
       return false;
     }
 
@@ -129,7 +131,9 @@ async function testProvider(config: TestConfig): Promise<boolean> {
     }
 
     if (embedding.length !== config.expectedDimension) {
-      console.log(`  ⚠️  Dimension mismatch: expected ${config.expectedDimension}, got ${embedding.length}`);
+      console.log(
+        `  ⚠️  Dimension mismatch: expected ${config.expectedDimension}, got ${embedding.length}`,
+      );
       // Continue anyway - some models might have different dimensions
     }
 
@@ -137,8 +141,8 @@ async function testProvider(config: TestConfig): Promise<boolean> {
     console.log(`  ✅ Model name: ${singleResult.model}`);
 
     // Check embedding values
-    const hasNaN = embedding.some(value => isNaN(value));
-    const allZero = embedding.every(value => value === 0);
+    const hasNaN = embedding.some((value) => isNaN(value));
+    const allZero = embedding.every((value) => value === 0);
 
     if (hasNaN) {
       console.log(`  ⚠️  Embedding contains NaN values`);
@@ -154,16 +158,20 @@ async function testProvider(config: TestConfig): Promise<boolean> {
       const batchResult = await provider.generateEmbeddings(testTexts);
       const batchTime = Date.now() - batchStartTime;
 
-      console.log(`  ✅ Batch of ${testTexts.length} embeddings generated in ${batchTime}ms`);
+      console.log(
+        `  ✅ Batch of ${testTexts.length} embeddings generated in ${batchTime}ms`,
+      );
 
       if (batchResult.embeddings.length !== testTexts.length) {
-        console.log(`  ❌ Batch size mismatch: expected ${testTexts.length}, got ${batchResult.embeddings.length}`);
+        console.log(
+          `  ❌ Batch size mismatch: expected ${testTexts.length}, got ${batchResult.embeddings.length}`,
+        );
         return false;
       }
 
       // Check all embeddings have correct dimensions
       const consistentDimensions = batchResult.embeddings.every(
-        emb => emb.length === batchResult.embeddings[0].length
+        (emb) => emb.length === batchResult.embeddings[0].length,
       );
 
       if (!consistentDimensions) {
@@ -182,7 +190,6 @@ async function testProvider(config: TestConfig): Promise<boolean> {
     console.log(`  ✅ Provider.getModelName(): ${modelName}`);
 
     return true;
-
   } catch (error: any) {
     console.log(`  ❌ Error during embedding generation: ${error.message}`);
 
@@ -191,8 +198,12 @@ async function testProvider(config: TestConfig): Promise<boolean> {
       console.log(`  💡 Debugging tips for Qwen/Ollama:`);
       console.log(`    1. Make sure Ollama is running: 'ollama serve'`);
       console.log(`    2. Check if model is downloaded: 'ollama list'`);
-      console.log(`    3. Test Ollama API: 'curl ${config.config.baseUrl}/api/tags'`);
-      console.log(`    4. Pull the model: 'ollama pull ${config.config.model}'`);
+      console.log(
+        `    3. Test Ollama API: 'curl ${config.config.baseUrl}/api/tags'`,
+      );
+      console.log(
+        `    4. Pull the model: 'ollama pull ${config.config.model}'`,
+      );
     } else if (config.provider === "deepseek") {
       console.log(`  💡 Debugging tips for DeepSeek:`);
       console.log(`    1. Check API key is set in environment`);
@@ -215,11 +226,15 @@ async function main() {
   if (providersToTest.includes("all")) {
     testSets = Object.keys(testConfigs);
   } else {
-    testSets = providersToTest.filter(p => p in testConfigs);
-    const invalid = providersToTest.filter(p => !(p in testConfigs) && p !== "all");
+    testSets = providersToTest.filter((p) => p in testConfigs);
+    const invalid = providersToTest.filter(
+      (p) => !(p in testConfigs) && p !== "all",
+    );
     if (invalid.length > 0) {
       console.log(`⚠️  Unknown providers: ${invalid.join(", ")}`);
-      console.log(`   Available providers: ${Object.keys(testConfigs).join(", ")}`);
+      console.log(
+        `   Available providers: ${Object.keys(testConfigs).join(", ")}`,
+      );
     }
   }
 
@@ -228,7 +243,9 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(`Testing providers: ${testSets.map(p => testConfigs[p].description).join(", ")}`);
+  console.log(
+    `Testing providers: ${testSets.map((p) => testConfigs[p].description).join(", ")}`,
+  );
 
   const results: Record<string, boolean> = {};
   let allPassed = true;
@@ -237,9 +254,15 @@ async function main() {
     const config = testConfigs[providerKey];
 
     // Skip DeepSeek if no API key unless explicitly requested
-    if (providerKey === "deepseek" && !config.config.apiKey && !providersToTest.includes("deepseek")) {
+    if (
+      providerKey === "deepseek" &&
+      !config.config.apiKey &&
+      !providersToTest.includes("deepseek")
+    ) {
       console.log(`\n⏭️  Skipping DeepSeek test - API key not provided`);
-      console.log(`   Set LLM_API_KEY environment variable to test DeepSeek embeddings`);
+      console.log(
+        `   Set LLM_API_KEY environment variable to test DeepSeek embeddings`,
+      );
       results[providerKey] = true; // Skip, not fail
       continue;
     }
@@ -262,7 +285,9 @@ async function main() {
     console.log(`${status} ${config.description}`);
   }
 
-  console.log("\n" + (allPassed ? "🎉 All tests passed!" : "❌ Some tests failed"));
+  console.log(
+    "\n" + (allPassed ? "🎉 All tests passed!" : "❌ Some tests failed"),
+  );
 
   // Provide setup instructions if needed
   if (!results.qwen && testSets.includes("qwen")) {
@@ -270,7 +295,7 @@ async function main() {
     console.log("----------------------------------");
     console.log("1. Install Ollama: https://ollama.ai/download");
     console.log("2. Start Ollama server: 'ollama serve'");
-    console.log("3. Pull Qwen model: 'ollama pull qwen2.5:1.8b'");
+    console.log("3. Pull Qwen model: 'ollama pull qwen2.5:1.5b'");
     console.log("4. Test Ollama: 'curl http://localhost:11434/api/tags'");
     console.log("5. Run test again: 'npm run test:embeddings qwen'");
   }
@@ -279,7 +304,9 @@ async function main() {
     console.log("\n🔧 DeepSeek Setup Instructions:");
     console.log("-------------------------------");
     console.log("1. Get API key from: https://platform.deepseek.com/api_keys");
-    console.log("2. Set environment variable: export LLM_API_KEY=your_key_here");
+    console.log(
+      "2. Set environment variable: export LLM_API_KEY=your_key_here",
+    );
     console.log("3. Run test again: 'npm run test:embeddings deepseek'");
   }
 
