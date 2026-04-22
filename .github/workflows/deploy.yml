@@ -233,7 +233,7 @@ jobs:
                 echo "SSL certificates not found. Generating self-signed certificates..."
 
                 # Extract domain from nginx config (use HTTPS server block - last occurrence)
-                DOMAIN=$(grep "server_name" nginx/nginx.conf | tail -1 | awk '{print $2}' | sed 's/;//')
+                DOMAIN=$(grep "server_name" nginx/nginx.conf | tail -1 | awk '\''{print $2}'\'' | sed '\''s/;//'\'')
                 if [ -z "$DOMAIN" ] || [ "$DOMAIN" = "_" ] || [ "$DOMAIN" = "__DOMAIN_NAME__" ]; then
                     DOMAIN="localhost"
                 fi
