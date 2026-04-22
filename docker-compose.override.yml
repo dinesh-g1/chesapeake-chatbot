@@ -134,8 +134,6 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-    profiles:
-      - ollama
 
   # Development database viewer (optional)
   db-viewer:
@@ -151,8 +149,6 @@ services:
       - pgadmin_data:/var/lib/pgadmin
     networks:
       - chatbot_network
-    profiles:
-      - db-viewer
 
   # Development monitoring (optional)
   prometheus:
@@ -173,8 +169,6 @@ services:
       - "--web.enable-lifecycle"
     networks:
       - chatbot_network
-    profiles:
-      - monitoring
 
   grafana:
     image: grafana/grafana
@@ -193,8 +187,6 @@ services:
       - chatbot_network
     depends_on:
       - prometheus
-    profiles:
-      - monitoring
 
 # Networks
 networks:
@@ -215,26 +207,3 @@ volumes:
     driver: local
   ollama_data:
     driver: local
-
-# Profiles for optional development services
-profiles:
-  # Default profile includes only chatbot
-  default:
-    services:
-      - chatbot
-      - ollama
-
-  # Full development environment
-  full-dev:
-    services:
-      - chatbot
-      - ollama
-      - db-viewer
-      - prometheus
-      - grafana
-
-  # Minimal development (chatbot only)
-  minimal:
-    services:
-      - chatbot
-      - ollama
