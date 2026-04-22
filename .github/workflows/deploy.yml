@@ -196,6 +196,27 @@ jobs:
 
             cd ${{ env.DEPLOY_DIR }}
 
+            # Fix data directory permissions (critical for bind mount)
+            echo "Fixing data directory permissions..."
+            mkdir -p data
+            chown -R 1001:1001 data
+            chmod -R 755 data
+            ls -la data/ || echo "Data directory created"
+
+            # Clean up problematic Docker volumes before starting
+            echo "Cleaning up Docker volumes..."
+            docker compose \
+              -f docker-compose.yml \
+              --profile production \
+              down --volumes --remove-orphans 2>/dev/null || true
+
+            # Remove the specific problematic volume if it exists
+            docker volume rm -f chesapeake-chatbot_chatbot_data 2>/dev/null || true
+
+            # Recreate the volume with proper bind mount
+            echo "Recreating volumes..."
+            docker volume create chesapeake-chatbot_chatbot_data 2>/dev/null || true
+
             # Pull latest images (for nginx, postgres, etc.)
             docker compose \
               -f docker-compose.yml \
