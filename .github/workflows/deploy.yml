@@ -227,7 +227,7 @@ jobs:
             echo "Recreating volumes..."
             docker volume create chesapeake-chatbot_chatbot_data 2>/dev/null || true
 
-            # Generate self-signed SSL certificates if they don't exist
+            # Generate self-signed SSL certificates if they do not exist
             echo "Checking for SSL certificates..."
             if [ ! -f "nginx/ssl/fullchain.pem" ] || [ ! -f "nginx/ssl/privkey.pem" ]; then
                 echo "SSL certificates not found. Generating self-signed certificates..."
@@ -239,7 +239,7 @@ jobs:
                 fi
                 echo "Using domain: $DOMAIN"
 
-                # Create ssl directory if it doesn't exist
+                # Create ssl directory if it does not exist
                 mkdir -p nginx/ssl
 
                 # Generate self-signed certificate
