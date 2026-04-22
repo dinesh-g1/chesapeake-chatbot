@@ -14,7 +14,7 @@ export class QwenEmbeddingProvider implements EmbeddingProvider {
   constructor(config: any) {
     this.baseUrl = config.baseUrl || "http://localhost:11434";
     this.model = config.model || "qwen2.5:1.5b";
-    this.dimension = config.dimension || 2048; // Qwen2.5-1.5B has 2048 dimensions
+    this.dimension = config.dimension || 1536; // Qwen2.5-1.5B produces 1536-dimensional embeddings (confirmed via test)
 
     // Note: No API key needed for local Ollama
     this.defaultOptions = {

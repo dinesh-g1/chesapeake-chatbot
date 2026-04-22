@@ -39,10 +39,10 @@ const testConfigs: Record<string, TestConfig> = {
       baseUrl: process.env.EMBEDDING_BASE_URL || "http://localhost:11434",
       model: process.env.EMBEDDING_MODEL || "qwen2.5:1.5b",
       apiKey: "",
-      dimension: 2048,
+      dimension: 1536,
       batchSize: 1,
     },
-    expectedDimension: 2048,
+    expectedDimension: 1536,
     description: "Qwen embeddings via Ollama (local)",
   },
   mock: {
@@ -320,7 +320,12 @@ process.on("unhandledRejection", (error) => {
 });
 
 // Run the main function
-if (require.main === module) {
+const isMainModule =
+  process.argv[1] &&
+  (process.argv[1].endsWith("test-embeddings.ts") ||
+    process.argv[1].endsWith("test-embeddings"));
+
+if (isMainModule) {
   main().catch((error) => {
     console.error("Fatal error:", error);
     process.exit(1);

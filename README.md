@@ -225,7 +225,7 @@ Since DeepSeek doesn't offer a dedicated embedding model, switching to Qwen embe
 
 #### **Recommended Models**
 - **Qwen/Qwen2.5-7B-Instruct** (4096 dimensions, 32K context) - Best for general RAG tasks
-- **Qwen/Qwen2.5-1.5B-Instruct** (2048 dimensions) - Lightweight deployment
+- **Qwen/Qwen2.5-1.5B-Instruct** (1536 dimensions) - Lightweight deployment
 - **Qwen/Qwen2.5-Coder-7B** (4096 dimensions) - Technical/government content
 
 #### **Implementation Steps**
@@ -433,7 +433,7 @@ For local embeddings (no API costs), follow these steps:
    ```
 
 6. **Update vector store dimension**
-   Since Qwen2.5-1.5B uses 2048-dimensional embeddings (vs DeepSeek's 1536), you need to:
+   Since Qwen2.5-1.5B uses 1536-dimensional embeddings (same as DeepSeek), no changes needed to the vector store.
    - Clear existing vector store: `rm -rf data/vector_store.db`
    - Re-run ingestion: `npm run ingest`
 

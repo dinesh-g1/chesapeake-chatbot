@@ -76,7 +76,7 @@ class MockLLMProvider implements LLMProvider {
   }
 }
 
-class MockEmbeddingProvider implements EmbeddingProvider {
+export class MockEmbeddingProvider implements EmbeddingProvider {
   constructor(private config: EmbeddingConfig) {}
 
   async generateEmbeddings(
@@ -128,8 +128,9 @@ class MockVectorStore implements VectorStore {
   ): Promise<VectorSearchResult[]> {
     const k = options?.k || 5;
     const results: VectorSearchResult[] = [];
+    const docsArray = Array.from(this.documents.values());
 
-    for (const doc of this.documents.values()) {
+    for (const doc of docsArray) {
       if (results.length >= k) break;
       results.push({
         document: doc,

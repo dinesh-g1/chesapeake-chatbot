@@ -23,7 +23,7 @@ export const defaultConfig: AppConfig = {
     model: "qwen2.5:1.5b",
     apiKey: "", // No API key needed for local Ollama
     baseUrl: process.env.EMBEDDING_BASE_URL || "http://localhost:11434",
-    dimension: 2048, // Qwen2.5-1.5B embeddings dimension
+    dimension: 1536, // Qwen2.5-1.5B embeddings dimension (confirmed via test)
     batchSize: 1, // Ollama processes one at a time
   },
   vectorStore: {
@@ -32,7 +32,7 @@ export const defaultConfig: AppConfig = {
       process.env.DATABASE_URL || "sqlite://./data/vector_store.db",
     collectionName: "chesapeake_documents",
     tableName: "vectors",
-    dimension: 2048, // Match Qwen2.5-1.5B dimension
+    dimension: 1536, // Match Qwen2.5-1.5B embedding dimension (1536)
   },
   scraper: {
     provider: "cheerio" as const,

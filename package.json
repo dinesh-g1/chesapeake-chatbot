@@ -7,8 +7,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "ingest": "ts-node scripts/ingest.ts",
-    "test:embeddings": "ts-node scripts/test-embeddings.ts"
+    "ingest": "tsx scripts/ingest.ts",
+    "test:embeddings": "tsx scripts/test-embeddings.ts"
   },
   "dependencies": {
     "@types/uuid": "^10.0.0",
