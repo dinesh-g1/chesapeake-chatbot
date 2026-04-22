@@ -220,12 +220,14 @@ jobs:
             docker volume rm -f chesapeake-chatbot_postgres_data 2>/dev/null || true
             docker volume rm -f chesapeake-chatbot_redis_data 2>/dev/null || true
 
-            # Remove the specific problematic volume if it exists
-            docker volume rm -f chesapeake-chatbot_chatbot_data 2>/dev/null || true
-
-            # Recreate the volume with proper bind mount
-            echo "Recreating volumes..."
-            docker volume create chesapeake-chatbot_chatbot_data 2>/dev/null || true
+            # Preserve chatbot_data volume across deployments, only create if missing
+            echo "Checking chatbot_data volume..."
+            if ! docker volume inspect chesapeake-chatbot_chatbot_data >/dev/null 2>&1; then
+                echo "Creating chatbot_data volume..."
+                docker volume create chesapeake-chatbot_chatbot_data 2>/dev/null || true
+            else
+                echo "chatbot_data volume already exists, preserving data."
+            fi
 
             # Generate self-signed SSL certificates if they do not exist
             echo "Checking for SSL certificates..."
@@ -254,6 +256,16 @@ jobs:
                 echo "Self-signed SSL certificates generated for $DOMAIN."
             else
                 echo "SSL certificates already exist."
+            fi
+
+            # Generate DH parameters for nginx if they don't exist
+            echo "Checking for DH parameters..."
+            if [ ! -f "nginx/ssl/dhparam.pem" ]; then
+                echo "DH parameters not found. Generating 2048-bit DH params (this may take a minute)..."
+                openssl dhparam -out nginx/ssl/dhparam.pem 2048
+                echo "DH parameters generated."
+            else
+                echo "DH parameters already exist."
             fi
 
             # Pull latest images (for nginx and other services)
