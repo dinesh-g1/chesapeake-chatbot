@@ -262,8 +262,12 @@ jobs:
             echo "Checking for DH parameters..."
             if [ ! -f "nginx/ssl/dhparam.pem" ]; then
                 echo "DH parameters not found. Generating 2048-bit DH params (this may take a minute)..."
-                openssl dhparam -out nginx/ssl/dhparam.pem 2048
-                echo "DH parameters generated."
+                openssl dhparam -out nginx/ssl/dhparam.pem 2048 2>/dev/null || true
+                if [ -f "nginx/ssl/dhparam.pem" ]; then
+                    echo "DH parameters generated."
+                else
+                    echo "Warning: DH parameter generation failed, but continuing deployment."
+                fi
             else
                 echo "DH parameters already exist."
             fi
