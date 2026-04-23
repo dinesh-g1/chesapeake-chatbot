@@ -105,19 +105,15 @@ fi
 
 # ── 6. Application directory ─────────────────────────────────────────────────
 info "Setting up application directory..."
-mkdir -p /opt/chesapeake-chatbot/{data,nginx/{ssl,logs,letsencrypt,letsencrypt-etc}}
+mkdir -p /opt/chesapeake-chatbot/{data,caddy}
 ok "Application directory created at /opt/chesapeake-chatbot"
 
-# ── 7. Generate stronger Diffie-Hellman params for nginx ─────────────────────
-DH_FILE="/opt/chesapeake-chatbot/nginx/ssl/dhparam.pem"
-if [[ ! -f "$DH_FILE" ]]; then
-    info "Generating 2048-bit DH params (this may take a minute)..."
-    openssl dhparam -out "$DH_FILE" 2048
-    chmod 644 "$DH_FILE"
-    ok "DH params generated"
-else
-    ok "DH params already exist"
-fi
+# ── 7. Caddy data directory ─────────────────────────────────────────────────
+# Caddy automatically provisions and renews Let's Encrypt certificates.
+# No manual certbot, dhparam, or SSL scripts needed. It stores certificates
+# in its own data directory (mounted as a Docker volume in docker-compose.yml).
+mkdir -p /opt/chesapeake-chatbot/caddy
+ok "Caddy data directory created"
 
 # ── 8. Firewall (UFW) ────────────────────────────────────────────────────────
 info "Configuring firewall..."
@@ -208,26 +204,18 @@ echo "  2. Get the SSH host key fingerprint for GitHub Secrets:"
 echo "     ssh-keyscan -H <VPS_IP>"
 echo "     (paste the output as VPS_KNOWN_HOSTS secret)"
 echo ""
-echo "  3. Set up SSL with Certbot (AFTER DNS points to this server):"
-echo "     ssh deploy@<VPS_IP>"
-echo "     docker exec -it chatbot-nginx certbot certonly --webroot \\"
-echo "       -w /var/www/letsencrypt -d your-domain.com --agree-tos \\"
-echo "       --email admin@your-domain.com --non-interactive"
-echo "     # Then copy certs:"
-echo "     docker cp chatbot-nginx:/etc/letsencrypt/live/your-domain.com/fullchain.pem \\"
-echo "       /opt/chesapeake-chatbot/nginx/ssl/"
-echo "     docker cp chatbot-nginx:/etc/letsencrypt/live/your-domain.com/privkey.pem \\"
-echo "       /opt/chesapeake-chatbot/nginx/ssl/"
-echo "     docker cp chatbot-nginx:/etc/letsencrypt/live/your-domain.com/chain.pem \\"
-echo "       /opt/chesapeake-chatbot/nginx/ssl/"
+echo "  3. No SSL setup needed! Caddy automatically:"
+echo "     • Obtains Let's Encrypt certificates on first request"
+echo "     • Renews certificates automatically before expiry"
+echo "     • Redirects HTTP → HTTPS automatically"
+echo "     Just ensure DNS A records point to this server's IP."
 echo ""
-echo "  4. Set up auto-renewal for Let's Encrypt:"
-echo "     ssh deploy@<VPS_IP>"
-echo "     crontab -e"
-echo "     # Add: 0 3 * * * docker exec chatbot-nginx certbot renew && docker exec chatbot-nginx nginx -s reload"
+echo "  4. Configure GitHub Secrets (see .github/workflows/deploy.yml for list)"
+echo "     Required secrets:"
+echo "       - VPS_SSH_KEY, VPS_KNOWN_HOSTS, VPS_USER, VPS_HOST"
+echo "       - DOMAIN_NAME (e.g. chesapeakechatbot.chat)"
+echo "       - LLM_API_KEY (for DeepSeek)"
 echo ""
-echo "  5. Configure GitHub Secrets (see .github/workflows/deploy.yml for list)"
-echo ""
-echo "  6. Push to main — the deploy workflow will handle the rest!"
+echo "  5. Push to main — the deploy workflow will handle the rest!"
 echo ""
 echo "=============================================="

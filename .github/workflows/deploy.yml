@@ -128,6 +128,7 @@ jobs:
           # ── Deployment ──────────────────────────────────────────────
           API_URL=https://${{ secrets.DOMAIN_NAME }}
           FRONTEND_URL=https://${{ secrets.DOMAIN_NAME }}
+          DOMAIN_NAME=${{ secrets.DOMAIN_NAME }}
           LOG_LEVEL=${{ secrets.LOG_LEVEL || 'info' }}
           ENABLE_ANALYTICS=${{ secrets.ENABLE_ANALYTICS || 'false' }}
 
@@ -147,19 +148,20 @@ jobs:
 
           echo "✅ .env.production generated ($(wc -l < .env.production) lines)"
 
-      # ── 4. Prepare the domain-substituted nginx config ────────────────────
-      - name: 🌐 Generate nginx config
+      # ── 4. Verify Caddyfile exists ────────────────────────────────────────
+      - name: 🌐 Verify Caddyfile
         run: |
-          DOMAIN_NAME="${{ secrets.DOMAIN_NAME }}" \
-          ADMIN_EMAIL="${{ secrets.ADMIN_EMAIL }}" \
-          python3 scripts/generate-nginx-config.py nginx/nginx.conf > nginx/nginx.conf.deploy
-          echo "✅ nginx.conf.deploy generated"
+          if [ ! -f "Caddyfile" ]; then
+            echo "❌ Caddyfile not found!"
+            exit 1
+          fi
+          echo "✅ Caddyfile ready (uses env-var domain substitution)"
 
       # ── 5. Sync code to VPS ──────────────────────────────────────────────
       - name: 📦 Sync code to VPS via rsync
         run: |
           # Ensure remote directory exists
-          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "mkdir -p ${{ env.DEPLOY_DIR }}/nginx/ssl ${{ env.DEPLOY_DIR }}/nginx/logs ${{ env.DEPLOY_DIR }}/data"
+          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "mkdir -p ${{ env.DEPLOY_DIR }}/data"
 
           # Sync project files (exclude heavy / unnecessary dirs)
           rsync -avz --delete \
@@ -178,12 +180,11 @@ jobs:
 
           echo "✅ Code synced to ${{ env.DEPLOY_DIR }}"
 
-      # ── 6. Upload generated .env and nginx config ────────────────────────
-      - name: 📄 Upload generated config files
+      # ── 6. Upload generated .env file ────────────────────────────────────
+      - name: 📄 Upload generated .env file
         run: |
           scp .env.production ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ env.DEPLOY_DIR }}/.env
-          scp nginx/nginx.conf.deploy ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ env.DEPLOY_DIR }}/nginx/nginx.conf
-          echo "✅ Config files uploaded"
+          echo "✅ .env file uploaded"
 
       # ── 7. Build & deploy on VPS ─────────────────────────────────────────
       - name: 🐳 Build and start containers on VPS
@@ -229,50 +230,7 @@ jobs:
                 echo "chatbot_data volume already exists, preserving data."
             fi
 
-            # Generate self-signed SSL certificates if they do not exist
-            echo "Checking for SSL certificates..."
-            if [ ! -f "nginx/ssl/fullchain.pem" ] || [ ! -f "nginx/ssl/privkey.pem" ]; then
-                echo "SSL certificates not found. Generating self-signed certificates..."
-
-                # Extract domain from nginx config (use HTTPS server block - last occurrence)
-                DOMAIN=$(grep "server_name" nginx/nginx.conf | tail -1 | awk '\''{print $2}'\'' | sed '\''s/;//'\'')
-                if [ -z "$DOMAIN" ] || [ "$DOMAIN" = "_" ] || [ "$DOMAIN" = "__DOMAIN_NAME__" ]; then
-                    DOMAIN="localhost"
-                fi
-                echo "Using domain: $DOMAIN"
-
-                # Create ssl directory if it does not exist
-                mkdir -p nginx/ssl
-
-                # Generate self-signed certificate
-                openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-                  -keyout nginx/ssl/privkey.pem \
-                  -out nginx/ssl/fullchain.pem \
-                  -subj "/C=US/ST=Virginia/L=Chesapeake/O=Chesapeake City/CN=$DOMAIN"
-
-                # Create chain.pem (same as fullchain for self-signed)
-                cp nginx/ssl/fullchain.pem nginx/ssl/chain.pem 2>/dev/null || true
-
-                echo "Self-signed SSL certificates generated for $DOMAIN."
-            else
-                echo "SSL certificates already exist."
-            fi
-
-            # Generate DH parameters for nginx if they do not exist
-            echo "Checking for DH parameters..."
-            if [ ! -f "nginx/ssl/dhparam.pem" ]; then
-                echo "DH parameters not found. Generating 2048-bit DH params (this may take a minute)..."
-                openssl dhparam -out nginx/ssl/dhparam.pem 2048 2>/dev/null || true
-                if [ -f "nginx/ssl/dhparam.pem" ]; then
-                    echo "DH parameters generated."
-                else
-                    echo "Warning: DH parameter generation failed, but continuing deployment."
-                fi
-            else
-                echo "DH parameters already exist."
-            fi
-
-            # Pull latest images (for nginx and other services)
+            # Pull latest images (for Caddy and other services)
             docker compose \
               -f docker-compose.yml \
               --profile production \
@@ -313,7 +271,7 @@ jobs:
             HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
               --connect-timeout 5 \
               --max-time 10 \
-              "http://${{ secrets.VPS_HOST }}:3000/api/chat" 2>/dev/null || echo "000")
+              "http://${{ secrets.VPS_HOST }}/api/chat" 2>/dev/null || echo "000")
 
             if [ "$HTTP_STATUS" = "200" ] || [ "$HTTP_STATUS" = "405" ]; then
               echo "✅ Health check passed (HTTP $HTTP_STATUS) after ${i}s"

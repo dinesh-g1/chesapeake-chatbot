@@ -63,7 +63,7 @@ The **Chesapeake City Agentic AI Chatbot** is a sophisticated AI assistant desig
 
 ### Infrastructure
 - **Docker & Docker Compose** - Containerization and orchestration
-- **Nginx** - Reverse proxy and load balancing (production)
+- **Caddy** - Reverse proxy with automatic HTTPS (production)
 - **Node.js 20** - Runtime environment
 - **GitHub Actions** - CI/CD pipeline
 
@@ -341,9 +341,9 @@ Since DeepSeek doesn't offer a dedicated embedding model, switching to Qwen embe
 
 3. **Configure Domain & SSL (Optional)**
    ```bash
-   # Enable nginx in docker-compose.yml
-   # Update nginx/nginx.conf with your domain
-   # Place SSL certificates in nginx/ssl/
+   # Enable Caddy in docker-compose.yml
+   # Update Caddyfile with your domain (uses env var DOMAIN_NAME)
+   # Caddy automatically provisions Let's Encrypt certificates
    docker-compose up -d --build
    ```
 
@@ -366,8 +366,8 @@ Since DeepSeek doesn't offer a dedicated embedding model, switching to Qwen embe
 ┌─────────────────────────────────────────────────────────────┐
 │                    VPS / Cloud Provider                      │
 │  ┌──────────────────────────────────────────────────────┐  │
-│  │                    Nginx Reverse Proxy               │  │
-│  │  • SSL Termination                                 │  │
+│  │                    Caddy Reverse Proxy                │  │
+│  │  • Automatic HTTPS (Let's Encrypt)               │  │
 │  │  • Rate Limiting                                  │  │
 │  │  • Static File Caching                            │  │
 │  └──────────────────────────────────────────────────────┘  │
@@ -564,7 +564,7 @@ chesapeake-chatbot/
 ├── scripts/             # Utility scripts
 │   └── ingest.ts       # Data ingestion pipeline
 ├── docker/              # Docker configuration
-├── nginx/              # Nginx configuration
+├── Caddyfile            # Caddy reverse proxy configuration
 ├── .env.example        # Environment template
 ├── docker-compose.yml  # Docker orchestration
 ├── Dockerfile          # Docker build
@@ -709,7 +709,7 @@ curl http://localhost:3000/api/chat
 
 1. **Application Health**: `/api/chat` GET endpoint
 2. **Docker Health**: `docker-compose ps`
-3. **Nginx Status**: `docker-compose exec nginx nginx -t`
+3. **Caddy Status**: `docker-compose exec caddy caddy version`
 
 ### Logs
 
@@ -717,11 +717,11 @@ curl http://localhost:3000/api/chat
 # View application logs
 docker-compose logs -f chatbot
 
-# View nginx access logs
-docker-compose exec nginx tail -f /var/log/nginx/access.log
+# View Caddy access logs
+docker-compose exec caddy tail -f /var/log/caddy/access.log
 
 # View error logs
-docker-compose exec nginx tail -f /var/log/nginx/error.log
+docker-compose exec caddy tail -f /var/log/caddy/access.log
 ```
 
 ### Backup & Recovery
@@ -754,7 +754,7 @@ docker-compose run --rm chatbot npm run ingest
 ### Best Practices
 
 1. **API Keys**: Store in environment variables, never in code
-2. **Rate Limiting**: Configured in nginx and application layer
+2. **Rate Limiting**: Configured in Caddy and application layer
 3. **Input Validation**: All user inputs are validated
 4. **CORS**: Configured for specific origins
 5. **HTTPS**: Always use SSL in production
@@ -776,7 +776,7 @@ The application includes:
 1. **Database**: Switch from SQLite to PostgreSQL + pgvector
 2. **Caching**: Add Redis for session storage
 3. **CDN**: Use Cloudflare for static assets
-4. **Load Balancing**: Multiple chatbot instances behind nginx
+4. **Load Balancing**: Multiple chatbot instances behind Caddy
 5. **Monitoring**: Implement Prometheus + Grafana
 
 ### Expected Performance

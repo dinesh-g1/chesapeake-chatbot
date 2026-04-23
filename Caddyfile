@@ -1,0 +1,104 @@
+# =============================================================================
+# Caddyfile for Chesapeake City Agentic AI Chatbot
+# =============================================================================
+# Caddy automatically provisions and renews Let's Encrypt certificates.
+# No manual certbot, dhparam, or SSL scripts needed.
+#
+# The domain comes from the DOMAIN_NAME environment variable (set in
+# docker-compose.yml).  When DOMAIN_NAME is set to a real domain (e.g.
+# chesapeakechatbot.chat), Caddy automatically:
+#   - Obtains a Let's Encrypt certificate
+#   - Serves HTTPS on :443
+#   - Redirects HTTP :80 → HTTPS
+#
+# When DOMAIN_NAME is empty / unset, Caddy falls back to serving plain
+# HTTP on port 80 (useful for local development).
+#
+# Usage:
+#   DOMAIN_NAME=chesapeakechatbot.chat docker compose up -d
+# =============================================================================
+
+# ── Global Options ──────────────────────────────────────────────────────────
+{
+    # When no domain is set (DOMAIN_NAME empty), tell Caddy to just listen
+    # on port 80 with HTTP instead of failing trying to get a TLS cert.
+    auto_https disable_redirects
+}
+
+# ── Main site block ────────────────────────────────────────────────────────
+# When DOMAIN_NAME is set (e.g. "chesapeakechatbot.chat") this becomes:
+#   chesapeakechatbot.chat {
+#       ...
+#   }
+# Caddy will automatically serve HTTPS + redirect HTTP.
+#
+# When DOMAIN_NAME is empty, the fallback ":80" makes Caddy listen on
+# all interfaces, port 80, plain HTTP.
+{$DOMAIN_NAME:80} {
+    # ── Reverse proxy to the Next.js chatbot backend ───────────────────
+    reverse_proxy chatbot:3000 {
+        # Forward protocol info so the app knows if it's behind HTTPS
+        header_up X-Forwarded-Proto {scheme}
+        header_up X-Forwarded-Host {host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Real-IP {remote_host}
+
+        # WebSocket support (required for LLM streaming responses)
+        header_up Upgrade {header.Upgrade}
+        header_up Connection {header.Connection}
+    }
+
+    # ── Security Headers ───────────────────────────────────────────────
+    header {
+        # HTTP Strict Transport Security — force HTTPS for 1 year
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        # Prevent clickjacking
+        X-Frame-Options "SAMEORIGIN"
+        # Prevent MIME type sniffing
+        X-Content-Type-Options "nosniff"
+        # Enable XSS filter in older browsers
+        X-XSS-Protection "1; mode=block"
+        # Referrer policy
+        Referrer-Policy "strict-origin-when-cross-origin"
+        # Restrict browser features
+        Permissions-Policy "geolocation=(), microphone=(), camera=()"
+        # Content Security Policy
+        Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://api.deepseek.com; frame-ancestors 'self';"
+    }
+
+    # ── Rate Limiting ──────────────────────────────────────────────────
+    # Protect API/chat endpoints from abuse
+    @api_endpoints {
+        path /api/chat*
+        path /api/ingest*
+    }
+    rate_limit @api_endpoints {
+        zone dynamic {
+            key {remote_host}
+            events 10
+            window 1s
+        }
+    }
+
+    # ── Access Logging ─────────────────────────────────────────────────
+    log {
+        output file /var/log/caddy/access.log {
+            roll_size 100mb
+            roll_keep 5
+            roll_keep_for 720h   # 30 days
+        }
+        format json
+    }
+
+    # ── Compression ────────────────────────────────────────────────────
+    encode gzip zstd
+
+    # ── Static File Caching ────────────────────────────────────────────
+    @static_files {
+        path *.js *.css *.png *.jpg *.jpeg *.gif *.ico *.svg *.woff *.woff2 *.ttf *.eot *.webp
+    }
+    header @static_files {
+        Cache-Control "public, immutable, max-age=31536000"
+    }
+}
+```Now let me update the docker-compose.yml to replace nginx with Caddy:

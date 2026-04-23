@@ -387,29 +387,50 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   // Render message content with formatting
   const renderMessageContent = (content: string) => {
-    // Escape HTML first to prevent XSS
-    let formatted = content
+    let formatted = content;
+
+    // ── Pre-processing: handle raw HTML tags the LLM may output ──────
+    // 1. Convert raw <a href="URL" ...>text</a> to markdown [text](URL)
+    //    This catches when the LLM outputs full HTML anchor tags.
+    formatted = formatted.replace(
+      /<a\s[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi,
+      (_, url, text) => {
+        const cleaned = text.replace(/\s+/g, " ").trim();
+        return `[${cleaned}](${url})`;
+      },
+    );
+
+    // 2. Strip any remaining raw HTML tags (preserving their inner text)
+    formatted = formatted.replace(/<[^>]*>/g, "");
+
+    // 3. Escape HTML entities to prevent XSS
+    formatted = formatted
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;");
 
-    // Convert markdown links [text](url) to HTML links (before bold, to avoid ** clashes)
+    // ── Link processing ──────────────────────────────────────────────
+    // 4. Convert markdown links [text](url) to clickable HTML links
     formatted = formatted.replace(
       /\[([^\]]+)\]\(([^)]+)\)/g,
       '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline hover:text-blue-800">$1</a>',
     );
 
-    // Convert bare URLs to clickable links
+    // 5. Convert bare URLs to clickable links, cleaning trailing garbage
     formatted = formatted.replace(
-      /(https?:\/\/[^\s<]+)/g,
-      '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline hover:text-blue-800">$1</a>',
+      /(https?:\/\/[^\s<]*[^\s<.,;:!?"')}\]>])/g,
+      (match) => {
+        // Strip trailing punctuation / garbage characters from the URL
+        let url = match.replace(/[.,;:!?"')\]}>]+$/, "");
+        return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline hover:text-blue-800">${url}</a>`;
+      },
     );
 
-    // Enhanced markdown-like formatting
+    // ── Enhanced markdown-like formatting ────────────────────────────
     formatted = formatted
       // Bold
       .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-      // Italic (only when surrounded by word boundaries to avoid conflicting with bullets)
+      // Italic
       .replace(/(?<!\*)\*(?!\*)(.*?)(?<!\*)\*(?!\*)/g, "<em>$1</em>")
       // Inline code
       .replace(
@@ -436,7 +457,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         /^(\d+)\.\s+(.*)$/gm,
         '<div class="flex gap-2 ml-2"><span class="text-blue-600 font-semibold min-w-[1.5rem]">$1.</span><span>$2</span></div>',
       )
-      // Bullet list items (only lines starting with "- ")
+      // Bullet list items
       .replace(
         /^-\s+(.*)$/gm,
         '<div class="flex gap-2 ml-2"><span class="text-blue-500">•</span><span>$1</span></div>',

@@ -105,29 +105,25 @@ services:
           cpus: "0.5"
           memory: 512M
 
-  # Nginx Reverse Proxy (Optional - for production deployment)
-  nginx:
-    image: nginx:alpine
-    container_name: chatbot-nginx
+  # Caddy Reverse Proxy — Automatic HTTPS via Let's Encrypt
+  # Replaces nginx. No manual certbot, dhparam, or SSL scripts needed.
+  caddy:
+    image: caddy:2-alpine
+    container_name: chatbot-caddy
     restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro
-      - ./nginx/logs:/var/log/nginx
-      - ./nginx/letsencrypt:/var/www/letsencrypt
-      - ./nginx/letsencrypt-etc:/etc/letsencrypt
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      DOMAIN_NAME: ${DOMAIN_NAME:-}
     depends_on:
       - chatbot
     networks:
       - chatbot_network
-    healthcheck:
-      test: ["CMD", "nginx", "-t"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
     logging:
       driver: "json-file"
       options:
@@ -182,4 +178,10 @@ volumes:
   chatbot_data:
 
   ollama_data:
+    driver: local
+
+  caddy_data:
+    driver: local
+
+  caddy_config:
     driver: local
