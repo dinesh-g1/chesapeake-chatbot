@@ -4,40 +4,44 @@
 # Caddy automatically provisions and renews Let's Encrypt certificates.
 # No manual certbot, dhparam, or SSL scripts needed.
 #
-# The domain comes from the DOMAIN_NAME environment variable (set in
-# docker-compose.yml).  When DOMAIN_NAME is set to a real domain (e.g.
-# chesapeakechatbot.chat), Caddy automatically:
-#   - Obtains a Let's Encrypt certificate
-#   - Serves HTTPS on :443
-#   - Redirects HTTP :80 → HTTPS
+# PRODUCTION (DOMAIN_NAME set, e.g. "chesapeakechatbot.chat"):
+#   Caddy automatically:
+#     - Obtains a Let's Encrypt certificate for the domain
+#     - Serves HTTPS on :443
+#     - Redirects HTTP :80 → HTTPS
+#     - Applies all security headers and routing
 #
-# When DOMAIN_NAME is empty / unset, Caddy falls back to serving plain
-# HTTP on port 80 (useful for local development).
+# DEVELOPMENT (DOMAIN_NAME empty / unset):
+#   Caddy falls back to serving plain HTTP on port 80.
+#   Perfect for local testing without a real domain.
 #
 # Usage:
 #   DOMAIN_NAME=chesapeakechatbot.chat docker compose up -d
 # =============================================================================
 
 # ── Global Options ──────────────────────────────────────────────────────────
+# NO global options that would interfere with Let's Encrypt.
+# Do NOT add "local_certs" — that blocks real certificate provisioning.
+# Do NOT add "auto_https disable_redirects" — we WANT HTTP→HTTPS redirects.
 {
-    # When no domain is set (DOMAIN_NAME empty), tell Caddy to just listen
-    # on port 80 with HTTP instead of failing trying to get a TLS cert.
-    auto_https disable_redirects
+    # Enable debug logging during initial setup (remove for production)
+    # debug
 }
 
-# ── Main site block ────────────────────────────────────────────────────────
-# When DOMAIN_NAME is set (e.g. "chesapeakechatbot.chat") this becomes:
-#   chesapeakechatbot.chat {
-#       ...
-#   }
-# Caddy will automatically serve HTTPS + redirect HTTP.
+# ═══════════════════════════════════════════════════════════════════════════════
+# PRODUCTION — Site block for the domain
+# ═══════════════════════════════════════════════════════════════════════════════
+# When DOMAIN_NAME is set (e.g., "chesapeakechatbot.chat") this block activates.
+# Caddy automatically handles:
+#   - Let's Encrypt certificate provisioning and renewal
+#   - HTTPS on port 443
+#   - HTTP on port 80 (ACME challenge + redirect to HTTPS)
 #
-# When DOMAIN_NAME is empty, the fallback ":80" makes Caddy listen on
-# all interfaces, port 80, plain HTTP.
-{$DOMAIN_NAME:80} {
-    # ── Reverse proxy to the Next.js chatbot backend ───────────────────
+# When DOMAIN_NAME is empty, Caddy ignores this block (no error).
+{$DOMAIN_NAME} {
+    # ── Reverse proxy to the Next.js chatbot backend ───────────────────────
     reverse_proxy chatbot:3000 {
-        # Forward protocol info so the app knows if it's behind HTTPS
+        # Forward protocol info so the app knows it's behind HTTPS
         header_up X-Forwarded-Proto {scheme}
         header_up X-Forwarded-Host {host}
         header_up X-Forwarded-For {remote_host}
@@ -48,7 +52,7 @@
         header_up Connection {header.Connection}
     }
 
-    # ── Security Headers ───────────────────────────────────────────────
+    # ── Security Headers ───────────────────────────────────────────────────
     header {
         # HTTP Strict Transport Security — force HTTPS for 1 year
         Strict-Transport-Security "max-age=31536000; includeSubDomains"
@@ -66,8 +70,8 @@
         Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://api.deepseek.com; frame-ancestors 'self';"
     }
 
-    # ── Rate Limiting ──────────────────────────────────────────────────
-    # Protect API/chat endpoints from abuse
+    # ── Rate Limiting ──────────────────────────────────────────────────────
+    # Protect API/chat endpoints from abuse (10 req/s per IP)
     @api_endpoints {
         path /api/chat*
         path /api/ingest*
@@ -80,7 +84,7 @@
         }
     }
 
-    # ── Access Logging ─────────────────────────────────────────────────
+    # ── Access Logging ─────────────────────────────────────────────────────
     log {
         output file /var/log/caddy/access.log {
             roll_size 100mb
@@ -90,10 +94,10 @@
         format json
     }
 
-    # ── Compression ────────────────────────────────────────────────────
+    # ── Compression ────────────────────────────────────────────────────────
     encode gzip zstd
 
-    # ── Static File Caching ────────────────────────────────────────────
+    # ── Static File Caching ────────────────────────────────────────────────
     @static_files {
         path *.js *.css *.png *.jpg *.jpeg *.gif *.ico *.svg *.woff *.woff2 *.ttf *.eot *.webp
     }
@@ -101,4 +105,73 @@
         Cache-Control "public, immutable, max-age=31536000"
     }
 }
-```Now let me update the docker-compose.yml to replace nginx with Caddy:
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# DEVELOPMENT — Fallback HTTP-only block
+# ═══════════════════════════════════════════════════════════════════════════════
+# When DOMAIN_NAME is NOT set, this block activates and serves plain HTTP
+# on port 80.  Useful for local development without a real domain.
+#
+# When DOMAIN_NAME IS set, Caddy automatically binds port 80 for the domain
+# (ACME challenge + redirect).  This fallback block would conflict, so it
+# only activates when the domain block is absent.
+#
+# Note: Caddy v2 allows multiple site blocks on the same port — it routes
+# by Host header.  The domain block takes priority for the named domain,
+# and this block catches everything else.  For production with a domain,
+# this block effectively never matches.
+:80 {
+    # ── Reverse proxy ──────────────────────────────────────────────────────
+    reverse_proxy chatbot:3000 {
+        header_up X-Forwarded-Proto {scheme}
+        header_up X-Forwarded-Host {host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Real-IP {remote_host}
+        header_up Upgrade {header.Upgrade}
+        header_up Connection {header.Connection}
+    }
+
+    # ── Security Headers (same as production, minus HSTS) ──────────────────
+    header {
+        X-Frame-Options "SAMEORIGIN"
+        X-Content-Type-Options "nosniff"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "geolocation=(), microphone=(), camera=()"
+        Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://api.deepseek.com; frame-ancestors 'self';"
+    }
+
+    # ── Rate Limiting ──────────────────────────────────────────────────────
+    @api_endpoints {
+        path /api/chat*
+        path /api/ingest*
+    }
+    rate_limit @api_endpoints {
+        zone dynamic {
+            key {remote_host}
+            events 10
+            window 1s
+        }
+    }
+
+    # ── Access Logging ─────────────────────────────────────────────────────
+    log {
+        output file /var/log/caddy/access.log {
+            roll_size 100mb
+            roll_keep 5
+            roll_keep_for 720h
+        }
+        format json
+    }
+
+    # ── Compression ────────────────────────────────────────────────────────
+    encode gzip zstd
+
+    # ── Static File Caching ────────────────────────────────────────────────
+    @static_files {
+        path *.js *.css *.png *.jpg *.jpeg *.gif *.ico *.svg *.woff *.woff2 *.ttf *.eot *.webp
+    }
+    header @static_files {
+        Cache-Control "public, immutable, max-age=31536000"
+    }
+}
