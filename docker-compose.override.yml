@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   # Override chatbot service for local development
   chatbot:
