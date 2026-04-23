@@ -251,7 +251,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
                     Chesapeake City AI Chatbot
                   </h3>
                   <p className="text-xs text-gray-200">
-                    Live Demo • DeepSeek AI
+                    Live Demo • Powered by AI
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
