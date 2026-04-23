@@ -410,21 +410,17 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       .replace(/>/g, "&gt;");
 
     // ── Link processing ──────────────────────────────────────────────
-    // 4. Convert markdown links [text](url) to clickable HTML links
+    // 4. Convert markdown links [text](url) to plain "text (url)" format
     formatted = formatted.replace(
       /\[([^\]]+)\]\(([^)]+)\)/g,
-      '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline hover:text-blue-800">$1</a>',
-    );
-
-    // 5. Convert bare URLs to clickable links, cleaning trailing garbage
-    formatted = formatted.replace(
-      /(https?:\/\/[^\s<]*[^\s<.,;:!?"')}\]>])/g,
-      (match) => {
-        // Strip trailing punctuation / garbage characters from the URL
-        let url = match.replace(/[.,;:!?"')\]}>]+$/, "");
-        return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline hover:text-blue-800">${url}</a>`;
+      (_, text, url) => {
+        const cleaned = text.replace(/\s+/g, " ").trim();
+        return `${cleaned} (${url})`;
       },
     );
+
+    // 5. Leave bare URLs as plain text (no clickable links)
+    // URLs are already visible; no conversion needed.
 
     // ── Enhanced markdown-like formatting ────────────────────────────
     formatted = formatted
