@@ -70,19 +70,7 @@
         Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://api.deepseek.com; frame-ancestors 'self';"
     }
 
-    # ── Rate Limiting ──────────────────────────────────────────────────────
-    # Protect API/chat endpoints from abuse (10 req/s per IP)
-    @api_endpoints {
-        path /api/chat*
-        path /api/ingest*
-    }
-    rate_limit @api_endpoints {
-        zone dynamic {
-            key {remote_host}
-            events 10
-            window 1s
-        }
-    }
+
 
     # ── Access Logging ─────────────────────────────────────────────────────
     log {
