@@ -117,7 +117,7 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     environment:
-      DOMAIN_NAME: ${DOMAIN_NAME:-}
+      DOMAIN_NAME: ${DOMAIN_NAME:-:80}
     depends_on:
       - chatbot
     networks:
