@@ -38,7 +38,28 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   streamingEnabled = true,
 }) => {
   // State
-  const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    // Restore persisted messages from localStorage on mount
+    try {
+      const storedId =
+        sessionId || localStorage.getItem("chesapeake_chat_session_id");
+      if (storedId) {
+        const saved = localStorage.getItem(
+          `chesapeake_chat_messages_${storedId}`,
+        );
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          return parsed.map((msg: any) => ({
+            ...msg,
+            timestamp: new Date(msg.timestamp),
+          }));
+        }
+      }
+    } catch (e) {
+      console.error("Failed to restore chat history:", e);
+    }
+    return initialMessages;
+  });
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +91,29 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     }
   }, [currentSessionId]);
 
-  // No longer loading old messages from localStorage - start fresh each session
+  // Load saved messages from localStorage when session ID is established
+  useEffect(() => {
+    if (currentSessionId && messages.length === 0) {
+      try {
+        const saved = localStorage.getItem(
+          `chesapeake_chat_messages_${currentSessionId}`,
+        );
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          const restored = parsed.map((msg: any) => ({
+            ...msg,
+            timestamp: new Date(msg.timestamp),
+          }));
+          // Only restore if we have messages and current state is empty
+          if (restored.length > 0) {
+            setMessages(restored);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to restore chat history:", e);
+      }
+    }
+  }, [currentSessionId]);
 
   // Save messages to localStorage
   useEffect(() => {

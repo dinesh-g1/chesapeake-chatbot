@@ -24,6 +24,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [chatSize, setChatSize] = useState<{ w: number; h: number } | null>(
     null,
@@ -49,14 +50,18 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
 
   const handleToggle = () => {
     if (isOpen) {
+      // Start close animation first
+      setIsClosing(true);
       setIsAnimating(true);
       setTimeout(() => {
         setIsOpen(false);
+        setIsClosing(false);
         setIsAnimating(false);
         setIsExpanded(false);
       }, 300);
     } else {
       setIsOpen(true);
+      setIsClosing(false);
       setIsAnimating(true);
       setTimeout(() => setIsAnimating(false), 300);
     }
@@ -193,7 +198,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
       </div>
 
       {/* Chat Widget Container - Bottom right positioning */}
-      {isOpen && (
+      {(isOpen || isClosing) && (
         <div
           className="fixed z-[9998]"
           style={{
@@ -211,7 +216,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
             className={`
             bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden relative
             transition-all duration-300 ease-in-out flex flex-col h-full w-full
-            ${isAnimating && !isResizing ? "animate-slide-up" : ""}
+            ${isAnimating && !isResizing ? (isClosing ? "animate-slide-down" : "animate-slide-up") : ""}
           `}
             style={{
               boxShadow:
@@ -299,8 +304,21 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
             transform: translateY(0) scale(1);
           }
         }
+        @keyframes slide-down {
+          from {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+          to {
+            opacity: 0;
+            transform: translateY(20px) scale(0.95);
+          }
+        }
         .animate-slide-up {
           animation: slide-up 0.3s ease-out;
+        }
+        .animate-slide-down {
+          animation: slide-down 0.3s ease-in forwards;
         }
 
         /* Mobile optimizations */
