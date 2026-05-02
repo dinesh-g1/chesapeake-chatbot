@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
+import { Volume2, VolumeX, Pause, Play } from "lucide-react";
+import { useVoice } from "@/lib/useVoice";
 
 interface ChatMessage {
   id: string;
@@ -68,6 +70,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [currentSessionId, setCurrentSessionId] = useState(sessionId);
   const [isTyping, setIsTyping] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
+  const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(
+    null,
+  );
+
+  // Voice synthesis - free browser Web Speech API with Southern cadence
+  const voice = useVoice({ rate: 0.85, pitch: 0.95 });
   const [inputCollapsed, setInputCollapsed] = useState(false);
 
   // Refs
@@ -410,62 +418,56 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       .replace(/>/g, "&gt;");
 
     // ── Link processing ──────────────────────────────────────────────
-    // 4. Convert markdown links [text](url) to plain "text (url)" format
+    // 4. Convert markdown links [text](url) to clickable <a> tags
     formatted = formatted.replace(
       /\[([^\]]+)\]\(([^)]+)\)/g,
-      (_, text, url) => {
-        const cleaned = text.replace(/\s+/g, " ").trim();
-        return `${cleaned} (${url})`;
-      },
+      '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-[#0c5898] underline hover:text-[#a21f4b]">$1</a>',
     );
-
-    // 5. Leave bare URLs as plain text (no clickable links)
-    // URLs are already visible; no conversion needed.
 
     // ── Enhanced markdown-like formatting ────────────────────────────
     formatted = formatted
-      // Bold
-      .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+      // Bold → Chesapeake blue
+      .replace(
+        /\*\*(.*?)\*\*/g,
+        "<strong class='font-semibold text-[#0c5898]'>$1</strong>",
+      )
       // Italic
       .replace(/(?<!\*)\*(?!\*)(.*?)(?<!\*)\*(?!\*)/g, "<em>$1</em>")
-      // Inline code
+      // Inline code → maroon accent
       .replace(
         /`(.*?)`/g,
-        '<code class="bg-gray-100 px-1 py-0.5 rounded text-sm font-mono">$1</code>',
+        '<code class="bg-[#f0f0f0] px-1 py-px rounded text-[13px] font-mono text-[#a21f4b]">$1</code>',
       )
       // ### Headings
       .replace(
         /^#{3}\s+(.*)$/gm,
-        '<div class="text-blue-800 font-bold text-base mt-4 mb-2">$1</div>',
+        '<div class="text-[#0c5898] font-semibold text-sm mt-2 mb-0.5">$1</div>',
       )
       // ## Headings
       .replace(
         /^#{2}\s+(.*)$/gm,
-        '<div class="text-blue-800 font-bold text-lg mt-4 mb-2">$1</div>',
+        '<div class="text-[#0c5898] font-semibold text-[15px] mt-2.5 mb-0.5">$1</div>',
       )
       // # Headings
       .replace(
-        /^#\s+(.*)$/gm,
-        '<div class="text-blue-800 font-bold text-xl mt-4 mb-2">$1</div>',
+        /^#{1}\s+(.*)$/gm,
+        '<div class="text-[#a21f4b] font-bold text-base mt-2.5 mb-1">$1</div>',
       )
       // Numbered list items
       .replace(
         /^(\d+)\.\s+(.*)$/gm,
-        '<div class="flex gap-2 ml-2"><span class="text-blue-600 font-semibold min-w-[1.5rem]">$1.</span><span>$2</span></div>',
+        '<div class="flex gap-1.5 ml-1 my-0.5"><span class="text-[#a21f4b] font-semibold min-w-[1.25rem] text-sm">$1.</span><span class="text-sm">$2</span></div>',
       )
       // Bullet list items
       .replace(
-        /^-\s+(.*)$/gm,
-        '<div class="flex gap-2 ml-2"><span class="text-blue-500">•</span><span>$1</span></div>',
+        /^[•\-\*]\s+(.*)$/gm,
+        '<div class="flex gap-1.5 ml-1 my-0.5"><span class="text-[#a21f4b] font-semibold">•</span><span class="text-sm">$1</span></div>',
       )
-      // Section headers like **MAIN ANSWER:** or **ACTIONABLE STEPS**
-      .replace(
-        /^(\*\*[A-Z][A-Z\s]+:\*\*)\s*/gm,
-        '<div class="text-blue-700 font-bold text-sm mt-3 mb-1">$1</div>',
-      )
-      // Newlines to br
+      // Newlines: double newlines become paragraph breaks, single become <br>
+      .replace(/\n\n+/g, "</p><p class='my-1'>")
       .replace(/\n/g, "<br />");
 
+    formatted = `<p class='my-0.5'>${formatted}</p>`;
     return { __html: formatted };
   };
 
@@ -474,7 +476,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       {/* Chat container */}
       <div className="flex-1 overflow-hidden flex flex-col">
         {/* Messages area */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.length > 0 && (
             <>
               {messages.map((message) => (
@@ -483,10 +485,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                   className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
                 >
                   <div
-                    className={`max-w-[80%] rounded-2xl px-5 py-3 ${
+                    className={`max-w-[82%] rounded-2xl px-4 py-2.5 ${
                       message.role === "user"
-                        ? "bg-blue-600 text-white rounded-br-none"
-                        : "bg-gray-100 text-gray-800 rounded-bl-none border border-gray-200"
+                        ? "chesapeake-bg-primary text-white rounded-br-md"
+                        : "bg-[#f8f9fa] text-[#454545] rounded-bl-md border border-[#e8eaed]"
                     }`}
                   >
                     <div className="flex items-center justify-between mb-1">
@@ -501,11 +503,105 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                     </div>
 
                     <div
-                      className="prose prose-sm max-w-none"
+                      className="text-sm leading-relaxed max-w-none space-y-1 [&_br]:content-[''] [&_br]:block [&_br]:h-1.5"
                       dangerouslySetInnerHTML={renderMessageContent(
                         message.content,
                       )}
                     />
+
+                    {/* Voice controls for assistant messages */}
+                    {message.role === "assistant" && voice.isSupported && (
+                      <div className="mt-2 pt-2 border-t border-gray-300 border-opacity-30 flex items-center gap-2">
+                        {speakingMessageId !== message.id ? (
+                          /* Not playing this message — show Listen */
+                          <button
+                            onClick={() => {
+                              // Strip markdown for cleaner speech
+                              const cleanText = message.content
+                                .replace(/\*\*/g, "")
+                                .replace(/\*/g, "")
+                                .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+                                .replace(/[#>`]/g, "")
+                                .replace(/\n{2,}/g, ". ")
+                                .replace(/\n/g, ". ");
+                              voice.speak(cleanText);
+                              setSpeakingMessageId(message.id);
+                            }}
+                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-colors bg-gray-200 text-gray-600 hover:bg-gray-300"
+                            aria-label="Listen to response"
+                          >
+                            <Volume2 className="w-3.5 h-3.5" />
+                            Listen
+                          </button>
+                        ) : voice.status === "speaking" ? (
+                          /* Playing — show Pause + Stop */
+                          <>
+                            <button
+                              onClick={() => voice.pause()}
+                              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-colors bg-amber-100 text-amber-700 hover:bg-amber-200"
+                              aria-label="Pause speaking"
+                            >
+                              <Pause className="w-3.5 h-3.5" />
+                              Pause
+                            </button>
+                            <button
+                              onClick={() => {
+                                voice.stop();
+                                setSpeakingMessageId(null);
+                              }}
+                              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-colors bg-red-100 text-red-600 hover:bg-red-200"
+                              aria-label="Stop speaking"
+                            >
+                              <VolumeX className="w-3.5 h-3.5" />
+                              Stop
+                            </button>
+                          </>
+                        ) : voice.status === "paused" ? (
+                          /* Paused — show Resume + Stop */
+                          <>
+                            <button
+                              onClick={() => voice.resume()}
+                              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-colors bg-green-100 text-green-700 hover:bg-green-200"
+                              aria-label="Resume speaking"
+                            >
+                              <Play className="w-3.5 h-3.5" />
+                              Resume
+                            </button>
+                            <button
+                              onClick={() => {
+                                voice.stop();
+                                setSpeakingMessageId(null);
+                              }}
+                              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-colors bg-red-100 text-red-600 hover:bg-red-200"
+                              aria-label="Stop speaking"
+                            >
+                              <VolumeX className="w-3.5 h-3.5" />
+                              Stop
+                            </button>
+                          </>
+                        ) : (
+                          /* idle / error / other — show Listen */
+                          <button
+                            onClick={() => {
+                              const cleanText = message.content
+                                .replace(/\*\*/g, "")
+                                .replace(/\*/g, "")
+                                .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+                                .replace(/[#>`]/g, "")
+                                .replace(/\n{2,}/g, ". ")
+                                .replace(/\n/g, ". ");
+                              voice.speak(cleanText);
+                              setSpeakingMessageId(message.id);
+                            }}
+                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-colors bg-gray-200 text-gray-600 hover:bg-gray-300"
+                            aria-label="Listen to response"
+                          >
+                            <Volume2 className="w-3.5 h-3.5" />
+                            Listen
+                          </button>
+                        )}
+                      </div>
+                    )}
 
                     {message.role === "assistant" &&
                       message.sources &&

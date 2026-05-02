@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { X, MessageSquare, Maximize2, Minimize2 } from "lucide-react";
+import { X, Maximize2, Minimize2, MessageCircle } from "lucide-react";
 import ChatInterface from "./ChatInterface";
 
 interface ChatWidgetProps {
@@ -180,19 +180,26 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
             ${
               isOpen
                 ? "bg-[#a21f4b] hover:bg-[#8c1a3f] text-white w-12 h-12 md:w-14 md:h-14 shadow-[0_4px_20px_rgba(162,34,76,0.4)]"
-                : "bg-[#a21f4b] hover:bg-[#8c1a3f] text-white w-14 h-14 md:w-16 md:h-16 shadow-[0_4px_20px_rgba(162,34,76,0.4)]"
+                : "bg-gradient-to-br from-[#a21f4b] to-[#8c1a3f] text-white w-14 h-14 md:w-16 md:h-16 shadow-[0_4px_20px_rgba(162,34,76,0.5)]"
             }
           `}
-          aria-label={isOpen ? "Close chat" : "Open chat"}
+          aria-label={
+            isOpen ? "Close chat" : "Chat with the City of Chesapeake"
+          }
           style={{
             width: isOpen ? "3rem" : "3.5rem",
             height: isOpen ? "3rem" : "3.5rem",
           }}
+          title="Chat with the City of Chesapeake"
         >
           {isOpen ? (
             <X className="w-5 h-5 md:w-6 md:h-6" />
           ) : (
-            <MessageSquare className="w-6 h-6 md:w-7 md:h-7" />
+            <img
+              src="https://www.cityofchesapeake.net/ImageRepository/Document?documentId=132"
+              alt="City of Chesapeake"
+              className="w-9 h-9 md:w-10 md:h-10 object-contain"
+            />
           )}
         </button>
       </div>
@@ -243,21 +250,31 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
                 />
               </svg>
             </div>
-            {/* Widget Header */}
-            <div className="bg-gradient-to-r from-[#0c5898] to-[#127a8e] text-white px-4 py-3 border-b border-[#083a6b] flex-shrink-0">
+            {/* Widget Header - Chesapeake City branded */}
+            <div className="bg-gradient-to-r from-[#0c5898] via-[#127a8e] to-[#0c5898] text-white px-4 py-3 border-b border-[#083a6b] flex-shrink-0">
               <div className="flex justify-between items-center">
-                <div>
-                  <h3 className="font-bold text-base">
-                    Chesapeake City AI Chatbot
-                  </h3>
-                  <p className="text-xs text-gray-200">
-                    Live Demo • Powered by AI
-                  </p>
+                <div className="flex items-center gap-3">
+                  {/* City Seal Logo */}
+                  <div className="flex-shrink-0 w-9 h-9 bg-white rounded-lg flex items-center justify-center shadow-md overflow-hidden">
+                    <img
+                      src="https://www.cityofchesapeake.net/ImageRepository/Document?documentId=132"
+                      alt="City of Chesapeake Seal"
+                      className="w-7 h-7 object-contain"
+                    />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-[15px] leading-tight">
+                      City of Chesapeake
+                    </h3>
+                    <p className="text-xs text-gray-200 font-medium">
+                      Official City Assistant
+                    </p>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handleExpand}
-                    className="text-white hover:text-gray-200 transition-colors p-1"
+                    className="text-white hover:text-gray-200 transition-colors p-1 rounded hover:bg-white/10"
                     aria-label={isExpanded ? "Minimize" : "Expand"}
                   >
                     {isExpanded ? (
@@ -268,7 +285,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({
                   </button>
                   <button
                     onClick={handleToggle}
-                    className="text-white hover:text-gray-200 transition-colors p-1"
+                    className="text-white hover:text-gray-200 transition-colors p-1 rounded hover:bg-white/10"
                     aria-label="Close chat"
                   >
                     <X className="w-6 h-6" />
