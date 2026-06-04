@@ -1,0 +1,51 @@
+# =============================================================================
+# Chesapeake City Chatbot — Diagnostics
+# =============================================================================
+
+name: Diagnostics
+
+on:
+  workflow_dispatch:
+
+jobs:
+  diagnose:
+    name: 🔍 Run diagnostics
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: 🔑 Install SSH key
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.VPS_SSH_KEY }}
+          known_hosts: ${{ secrets.VPS_KNOWN_HOSTS }}
+
+      - name: 🔍 Check container status and logs
+        run: |
+          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} '
+            echo "═══ Container Status ═══"
+            cd /opt/chesapeake-chatbot
+            docker compose -f docker-compose.yml --profile production ps
+
+            echo ""
+            echo "═══ Chatbot Container Logs (last 30 lines) ═══"
+            docker compose -f docker-compose.yml --profile production logs --tail=30 chatbot
+
+            echo ""
+            echo "═══ Ollama Status ═══"
+            docker exec chatbot-ollama ollama list 2>&1 || echo "(ollama check failed)"
+
+            echo ""
+            echo "═══ Test embedding from chatbot container ═══"
+            docker exec chatbot curl -s --max-time 10 \
+              -X POST http://ollama:11434/api/embeddings \
+              -H "Content-Type: application/json" \
+              -d "{\"model\":\"qwen2.5:1.5b\",\"prompt\":\"test\"}" 2>&1 || echo "(embedding test failed)"
+
+            echo ""
+            echo "═══ Test chat API from localhost ═══"
+            curl -s --max-time 60 \
+              -X POST http://localhost:3000/api/chat \
+              -H "Content-Type: application/json" \
+              -d "{\"message\":\"hello\",\"stream\":false}" 2>&1 || echo "(chat API test failed)"
+          '
