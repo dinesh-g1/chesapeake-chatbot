@@ -1,0 +1,76 @@
+# =============================================================================
+# Chesapeake City Chatbot — Full Diagnostics + Fix
+# =============================================================================
+
+name: Diagnose and Fix
+
+on:
+  workflow_dispatch:
+
+jobs:
+  fix:
+    name: 🔧 Diagnose and fix
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: 🔑 Install SSH key
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.VPS_SSH_KEY }}
+          known_hosts: ${{ secrets.VPS_KNOWN_HOSTS }}
+
+      - name: 🔍 Full diagnostics
+        run: |
+          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} '
+            echo "═══════════════════════════════════════"
+            echo "   CONTAINER STATUS"
+            echo "═══════════════════════════════════════"
+            cd /opt/chesapeake-chatbot
+            docker compose -f docker-compose.yml --profile production ps
+            echo ""
+
+            echo "═══════════════════════════════════════"
+            echo "   CADDY CONTAINER LOGS"
+            echo "═══════════════════════════════════════"
+            docker compose -f docker-compose.yml --profile production logs --tail=30 caddy 2>&1 || echo "(caddy logs not available)"
+            echo ""
+
+            echo "═══════════════════════════════════════"
+            echo "   CADDYFILE ON DISK (checking for rate_limit)"
+            echo "═══════════════════════════════════════"
+            grep -n "rate" /opt/chesapeake-chatbot/Caddyfile 2>&1 || echo "(no rate_limit directive found)"
+            echo ""
+
+            echo "═══════════════════════════════════════"
+            echo "   OLLAMA STATUS"
+            echo "═══════════════════════════════════════"
+            docker compose -f docker-compose.yml --profile production logs --tail=20 ollama 2>&1
+            echo ""
+            docker exec chatbot-ollama ollama list 2>&1 || echo "(ollama not ready)"
+            echo ""
+
+            echo "═══════════════════════════════════════"
+            echo "   CHATBOT ERROR LOGS"
+            echo "═══════════════════════════════════════"
+            docker compose -f docker-compose.yml --profile production logs --tail=50 chatbot 2>&1 | grep -iE "error|Error|embedding|Embedding|500"
+            echo ""
+
+            echo "═══════════════════════════════════════"
+            echo "   TEST EMBEDDINGS FROM INSIDE CHATBOT"
+            echo "═══════════════════════════════════════"
+            docker exec chesapeake-chatbot curl -s --max-time 10 \
+              -X POST http://ollama:11434/api/embeddings \
+              -H "Content-Type: application/json" \
+              -d "{\"model\":\"qwen2.5:1.5b\",\"prompt\":\"test\"}" 2>&1 || echo "(embedding test failed)"
+            echo ""
+
+            echo "═══════════════════════════════════════"
+            echo "   TEST CHAT API FROM INSIDE CHATBOT"
+            echo "═══════════════════════════════════════"
+            docker exec chesapeake-chatbot curl -s -w "\nHTTP_STATUS:%{http_code}" --max-time 60 \
+              -X POST http://localhost:3000/api/chat \
+              -H "Content-Type: application/json" \
+              -d "{\"message\":\"hello\",\"stream\":false}" 2>&1
+            echo ""
+          '
