@@ -100,7 +100,7 @@ jobs:
           LLM_MAX_TOKENS=${{ secrets.LLM_MAX_TOKENS || '4000' }}
 
           # ── Embeddings ──────────────────────────────────────────────
-          EMBEDDING_PROVIDER=${{ secrets.EMBEDDING_PROVIDER || 'qwen' }}
+          EMBEDDING_PROVIDER=${{ secrets.EMBEDDING_PROVIDER || 'mock' }}
           EMBEDDING_MODEL=${{ secrets.EMBEDDING_MODEL || 'qwen2.5:1.5b' }}
           EMBEDDING_API_KEY=${{ secrets.EMBEDDING_API_KEY || '' }}
           EMBEDDING_BASE_URL=${{ secrets.EMBEDDING_BASE_URL || 'http://ollama:11434' }}
