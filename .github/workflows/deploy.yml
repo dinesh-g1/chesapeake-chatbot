@@ -100,7 +100,7 @@ jobs:
           LLM_MAX_TOKENS=${{ secrets.LLM_MAX_TOKENS || '4000' }}
 
           # ── Embeddings ──────────────────────────────────────────────
-          EMBEDDING_PROVIDER=${{ secrets.EMBEDDING_PROVIDER || 'mock' }}
+          EMBEDDING_PROVIDER=${{ secrets.EMBEDDING_PROVIDER || 'transformers' }}
           EMBEDDING_MODEL=${{ secrets.EMBEDDING_MODEL || 'qwen2.5:1.5b' }}
           EMBEDDING_API_KEY=${{ secrets.EMBEDDING_API_KEY || '' }}
           EMBEDDING_BASE_URL=${{ secrets.EMBEDDING_BASE_URL || 'http://ollama:11434' }}
@@ -128,7 +128,7 @@ jobs:
           # ── Deployment ──────────────────────────────────────────────
           API_URL=https://${{ secrets.DOMAIN_NAME }}
           FRONTEND_URL=https://${{ secrets.DOMAIN_NAME }}
-          DOMAIN_NAME=:80
+          DOMAIN_NAME=${{ secrets.DOMAIN_NAME }}
           LOG_LEVEL=${{ secrets.LOG_LEVEL || 'info' }}
           ENABLE_ANALYTICS=${{ secrets.ENABLE_ANALYTICS || 'false' }}
 

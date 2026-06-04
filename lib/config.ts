@@ -19,12 +19,12 @@ export const defaultConfig: AppConfig = {
     timeout: 30000,
   },
   embeddings: {
-    provider: "mock" as const,
-    model: "qwen2.5:1.5b",
-    apiKey: "", // No API key needed for local Ollama
-    baseUrl: process.env.EMBEDDING_BASE_URL || "http://localhost:11434",
-    dimension: 1536, // Qwen2.5-1.5B embeddings dimension (confirmed via test)
-    batchSize: 1, // Ollama processes one at a time
+    provider: "transformers" as const,
+    model: "Xenova/all-MiniLM-L6-v2",
+    apiKey: "", // No API key needed — runs locally via Transformers.js
+    baseUrl: "", // Not used for local inference
+    dimension: 384, // all-MiniLM-L6-v2 produces 384-dimensional embeddings
+    batchSize: 1, // Process one at a time
   },
   vectorStore: {
     provider: "sqlite" as const, // Using SQLite for demo, can be upgraded to Supabase/Pinecone
@@ -32,7 +32,7 @@ export const defaultConfig: AppConfig = {
       process.env.DATABASE_URL || "sqlite://./data/vector_store.db",
     collectionName: "chesapeake_documents",
     tableName: "vectors",
-    dimension: 1536, // Match Qwen2.5-1.5B embedding dimension (1536)
+    dimension: 384, // Match all-MiniLM-L6-v2 embedding dimension
   },
   scraper: {
     provider: "cheerio" as const,

@@ -26,6 +26,7 @@ import { configManager } from "../config";
 import { DeepSeekLLMProvider } from "./implementations/deepseek-llm";
 import { DeepSeekEmbeddingProvider } from "./implementations/deepseek-embeddings";
 import { QwenEmbeddingProvider } from "./implementations/qwen-embeddings";
+import { TransformersEmbeddingProvider } from "./implementations/transformers-embeddings";
 import { CheerioContentScraper } from "./implementations/cheerio-scraper";
 import { SQLiteVectorStore } from "./implementations/sqlite-vector-store";
 
@@ -366,6 +367,8 @@ export class ChesapeakeProviderFactory implements ProviderFactory {
         throw new Error("Local embeddings not implemented yet");
       case "qwen":
         return new QwenEmbeddingProvider(config);
+      case "transformers":
+        return new TransformersEmbeddingProvider(config);
       case "mock":
         return new MockEmbeddingProvider(config);
       default:
