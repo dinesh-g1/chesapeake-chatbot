@@ -19,7 +19,7 @@ export const defaultConfig: AppConfig = {
     timeout: 30000,
   },
   embeddings: {
-    provider: "qwen" as const,
+    provider: "mock" as const,
     model: "qwen2.5:1.5b",
     apiKey: "", // No API key needed for local Ollama
     baseUrl: process.env.EMBEDDING_BASE_URL || "http://localhost:11434",

@@ -140,6 +140,7 @@ services:
     environment:
       OLLAMA_KEEP_ALIVE: 24h
       OLLAMA_HOST: 0.0.0.0
+      OLLAMA_EXPERIMENTAL_EMBEDDINGS: "true"
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-qwen2.5:1.5b}
     volumes:
       - ollama_data:/root/.ollama
