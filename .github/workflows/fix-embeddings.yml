@@ -1,0 +1,79 @@
+# =============================================================================
+# Fix Embeddings + HTTPS
+# =============================================================================
+
+name: Fix Embeddings and HTTPS
+
+on:
+  workflow_dispatch:
+
+jobs:
+  fix:
+    name: 🔧 Fix
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: 🔑 Install SSH key
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.VPS_SSH_KEY }}
+          known_hosts: ${{ secrets.VPS_KNOWN_HOSTS }}
+
+      - name: 🔍 Check Ollama version and fix embeddings
+        run: |
+          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} '
+            set -e
+            cd /opt/chesapeake-chatbot
+
+            echo "=== Current Ollama version ==="
+            docker exec chatbot-ollama ollama --version 2>&1 || true
+            echo ""
+
+            echo "=== Check if embeddings endpoint exists ==="
+            curl -s -X POST http://localhost:11434/api/embeddings \
+              -H "Content-Type: application/json" \
+              -d "{\"model\":\"qwen2.5:1.5b\",\"prompt\":\"test\"}" 2>&1 || true
+            echo ""
+
+            echo "=== Pull latest ollama image ==="
+            docker pull ollama/ollama:latest
+            echo ""
+
+            echo "=== Stop ollama and update image ==="
+            docker compose -f docker-compose.yml --profile production stop ollama
+            docker compose -f docker-compose.yml --profile production rm -f ollama 2>/dev/null || true
+            docker compose -f docker-compose.yml --profile production up -d ollama
+            echo ""
+
+            echo "=== Wait for ollama to be ready and model to pull ==="
+            for i in $(seq 1 120); do
+              if docker exec chatbot-ollama ollama list 2>/dev/null | grep -q "qwen2.5"; then
+                echo "Ollama ready with model after ${i}s"
+                break
+              fi
+              sleep 2
+            done
+            echo ""
+
+            echo "=== New Ollama version ==="
+            docker exec chatbot-ollama ollama --version 2>&1 || true
+            echo ""
+
+            echo "=== Test embeddings after update ==="
+            curl -s -X POST http://localhost:11434/api/embeddings \
+              -H "Content-Type: application/json" \
+              -d "{\"model\":\"qwen2.5:1.5b\",\"prompt\":\"test\"}" 2>&1 || true
+            echo ""
+
+            echo "=== Restart chatbot container to pick up new ollama ==="
+            docker compose -f docker-compose.yml --profile production restart chatbot
+            echo ""
+
+            echo "=== Test chat API ==="
+            sleep 10
+            curl -s -w "\nHTTP:%{http_code}" --max-time 60 \
+              -X POST http://localhost:3000/api/chat \
+              -H "Content-Type: application/json" \
+              -d "{\"message\":\"hello\",\"stream\":false}" 2>&1
+          '
