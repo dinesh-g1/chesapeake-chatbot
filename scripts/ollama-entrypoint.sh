@@ -41,7 +41,14 @@ MAX_WAIT_SECONDS="${MAX_WAIT_SECONDS:-120}"
 CHECK_INTERVAL=2
 
 # Original Ollama command (default to serve if not specified)
+# Note: --embeddings flag is required for the /api/embeddings endpoint
 ORIGINAL_CMD="${@:-/bin/ollama serve}"
+
+# Append --embeddings if not already included (required for embedding API support)
+if [[ "$ORIGINAL_CMD" != *"--embeddings"* ]] && [[ "$ORIGINAL_CMD" == *"serve"* ]]; then
+    ORIGINAL_CMD="$ORIGINAL_CMD --embeddings"
+    info "Added --embeddings flag to ollama serve command"
+fi
 
 # ── Functions ─────────────────────────────────────────────────────────────────
 
