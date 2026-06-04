@@ -364,7 +364,7 @@ export interface LLMConfig {
 }
 
 export interface EmbeddingConfig {
-  provider: "openai" | "deepseek" | "local" | "mock" | "qwen";
+  provider: "openai" | "deepseek" | "local" | "mock" | "qwen" | "transformers";
   model: string;
   apiKey?: string;
   baseUrl?: string;
@@ -465,7 +465,13 @@ export interface EnvironmentVariables {
   LLM_BASE_URL?: string;
 
   // Embeddings Configuration
-  EMBEDDING_PROVIDER: "openai" | "deepseek" | "local" | "mock" | "qwen";
+  EMBEDDING_PROVIDER:
+    | "openai"
+    | "deepseek"
+    | "local"
+    | "mock"
+    | "qwen"
+    | "transformers";
   EMBEDDING_MODEL: string;
   EMBEDDING_API_KEY?: string;
   EMBEDDING_BASE_URL?: string;
