@@ -1,14 +1,15 @@
 # Multi-stage build for Chesapeake City Agentic AI Chatbot
 # Stage 1: Builder
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 
 # Install build dependencies for native modules
-RUN apk add --no-cache \
+RUN apt-get update && apt-get install -y \
     python3 \
     make \
     g++ \
-    sqlite \
-    sqlite-dev
+    sqlite3 \
+    libsqlite3-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /app
@@ -31,15 +32,16 @@ RUN mkdir -p /app/data
 RUN npm run build
 
 # Stage 2: Runner
-FROM node:20-alpine AS runner
+FROM node:20-slim AS runner
 
 # Install runtime dependencies
-RUN apk add --no-cache \
+RUN apt-get update && apt-get install -y \
     bash \
     curl \
-    sqlite \
-    sqlite-libs \
-    dumb-init
+    sqlite3 \
+    libsqlite3-0 \
+    dumb-init \
+    && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs
