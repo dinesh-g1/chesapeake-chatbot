@@ -50,7 +50,7 @@ export class TransformersEmbeddingProvider implements EmbeddingProvider {
       });
 
       // Convert Float32Array to regular number array
-      const embedding = Array.from(output.data);
+      const embedding = Array.from(output.data as Float32Array);
       allEmbeddings.push(embedding);
     }
 
