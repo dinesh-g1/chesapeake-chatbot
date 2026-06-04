@@ -1,0 +1,37 @@
+# =============================================================================
+# Chesapeake City Chatbot — Diagnostics 2
+# =============================================================================
+
+name: Diagnostics 2
+
+on:
+  workflow_dispatch:
+
+jobs:
+  diagnose:
+    name: 🔍 Run diagnostics
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: 🔑 Install SSH key
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.VPS_SSH_KEY }}
+          known_hosts: ${{ secrets.VPS_KNOWN_HOSTS }}
+
+      - name: 🔍 Check ollama logs
+        run: |
+          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} '
+            echo "═══ Ollama Container Logs ═══"
+            cd /opt/chesapeake-chatbot
+            docker compose -f docker-compose.yml --profile production logs --tail=60 ollama
+
+            echo ""
+            echo "═══ Ollama Container Inspect ═══"
+            docker inspect chatbot-ollama --format "{{.State.Status}} | RestartCount: {{.RestartCount}} | StartedAt: {{.State.StartedAt}} | FinishedAt: {{.State.FinishedAt}} | ExitCode: {{.State.ExitCode}}"
+
+            echo ""
+            echo "═══ Check ollama process ═══"
+            docker exec chatbot-ollama ps aux 2>&1 || echo "(ps check failed - container may have crashed again)"
+          '
