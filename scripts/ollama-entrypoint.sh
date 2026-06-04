@@ -41,7 +41,13 @@ MAX_WAIT_SECONDS="${MAX_WAIT_SECONDS:-120}"
 CHECK_INTERVAL=2
 
 # Original Ollama command (default to serve if not specified)
-ORIGINAL_CMD="${@:-/bin/ollama serve}"
+# Additional flags (like --embeddings) can be passed via docker-compose command
+if [ $# -gt 0 ]; then
+    ORIGINAL_CMD="/bin/ollama serve $@"
+    info "Ollama command: $ORIGINAL_CMD"
+else
+    ORIGINAL_CMD="${@:-/bin/ollama serve}"
+fi
 
 # ── Functions ─────────────────────────────────────────────────────────────────
 
