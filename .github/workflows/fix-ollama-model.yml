@@ -1,0 +1,56 @@
+# =============================================================================
+# Chesapeake City Chatbot — Pull Qwen Embedding Model
+# =============================================================================
+# Pulls the qwen2.5:1.5b model into Ollama on the VPS.
+# Run manually from the Actions tab when embeddings fail.
+# =============================================================================
+
+name: Fix Ollama Model
+
+on:
+  workflow_dispatch:
+
+jobs:
+  fix-model:
+    name: 🔧 Pull Qwen model
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: 🔑 Install SSH key
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.VPS_SSH_KEY }}
+          known_hosts: ${{ secrets.VPS_KNOWN_HOSTS }}
+
+      - name: 🐳 Pull Qwen model in Ollama
+        run: |
+          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} '
+            set -e
+            echo "═══ Pulling Qwen 2.5 model ═══"
+
+            echo ""
+            echo "Available models before:"
+            docker exec chatbot-ollama ollama list 2>&1 || echo "(ollama not ready)"
+
+            echo ""
+            echo "Pulling qwen2.5:1.5b (this may take 2-5 minutes)..."
+            docker exec chatbot-ollama ollama pull qwen2.5:1.5b
+
+            echo ""
+            echo "Available models after:"
+            docker exec chatbot-ollama ollama list
+
+            echo ""
+            echo "✅ Model pull complete"
+          '
+          echo "✅ Done"
+
+      - name: 🩺 Verify chat is working
+        run: |
+          echo "Testing chat endpoint..."
+          sleep 3
+          curl -s -w "\nHTTP_STATUS: %{http_code}\n" --max-time 30 \
+            -X POST "http://${{ secrets.VPS_HOST }}:3000/api/chat" \
+            -H "Content-Type: application/json" \
+            -d '{"message":"hello","stream":false}' || echo "POST test completed"
