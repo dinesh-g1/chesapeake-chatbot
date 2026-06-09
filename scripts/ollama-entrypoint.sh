@@ -165,6 +165,8 @@ main() {
 
     # ── 1. Start Ollama in background ──────────────────────────────────────
     info "Starting Ollama..."
+    # Enable experimental embeddings API (required for /api/embeddings endpoint)
+    export OLLAMA_EXPERIMENTAL_EMBEDDINGS=true
     eval "$ORIGINAL_CMD" &
     local ollama_pid=$!
 

@@ -39,10 +39,6 @@
 #
 # When DOMAIN_NAME is empty, Caddy ignores this block (no error).
 {$DOMAIN_NAME} {
-    # ── TLS: Use self-signed cert temporarily ──────────────────────────
-    # TODO: Remove after June 6 when Let's Encrypt rate limit resets
-    tls internal
-
     # ── Reverse proxy to the Next.js chatbot backend ───────────────────────
     reverse_proxy chatbot:3000 {
         # Forward protocol info so the app knows it's behind HTTPS
